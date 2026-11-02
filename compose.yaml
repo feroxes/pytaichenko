@@ -1,0 +1,13 @@
+services:
+  voice-hub:
+    build: ./hub
+    image: voice-hub
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      VOICE_HUB_PASSWORD: ${VOICE_HUB_PASSWORD:-}
+      VOICE_HUB_HOSTS: ${VOICE_HUB_HOSTS:-}
+      VOICE_HUB_PORT: ${VOICE_HUB_PORT:-}

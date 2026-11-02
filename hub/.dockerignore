@@ -1,0 +1,13 @@
+.venv
+.pytest_cache
+**/__pycache__
+**/*.egg-info
+**/*.pyc
+build
+dist
+tests
+devtools
+samples
+conftest.py
+Dockerfile
+.dockerignore

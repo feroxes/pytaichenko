@@ -1,0 +1,30 @@
+esphome:
+  on_boot:
+    - light.turn_on: {id: led, effect: Offline}
+    - light.turn_on: {id: ring, effect: Offline, brightness: 1%}
+output:
+  - {platform: gpio, pin: GPIO2, id: led_out}
+  - platform: ledc
+    id: ring_out
+    pin: {number: GPIO4, drive_strength: 40mA}
+    frequency: 25000Hz
+    min_power: 0.03
+    zero_means_zero: true
+light:
+  - platform: binary
+    id: led
+    output: led_out
+    internal: true
+    effects:
+      - strobe: {name: Thinking, colors: [{state: true, duration: 600ms}, {state: false, duration: 600ms}]}
+      - strobe: {name: Error, colors: [{state: true, duration: 100ms}, {state: false, duration: 100ms}]}
+      - strobe: {name: Offline, colors: [{state: true, duration: 100ms}, {state: false, duration: 900ms}]}
+  - platform: monochromatic
+    id: ring
+    output: ring_out
+    internal: true
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 400ms
+    effects:
+      - pulse: {name: Thinking, transition_length: 1.2s, update_interval: 1.2s, min_brightness: 20%, max_brightness: 80%}
+      - pulse: {name: Offline, transition_length: 2s, update_interval: 2s, min_brightness: 0%, max_brightness: 70%}

@@ -1,0 +1,20 @@
+binary_sensor:
+  - platform: gpio
+    id: boot_button
+    pin: {number: GPIO0, inverted: true, mode: {input: true, pullup: true}}
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - script.execute: toggle_listen
+  - platform: gpio
+    id: top_button
+    pin: {number: GPIO19, inverted: true, mode: {input: true, pullup: true}}
+    filters:
+      - delayed_on: 30ms
+    on_press:
+      - script.execute: toggle_listen
+button:
+  - platform: template
+    name: Listen
+    on_press:
+      - script.execute: toggle_listen

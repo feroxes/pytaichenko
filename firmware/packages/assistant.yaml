@@ -1,0 +1,173 @@
+voice_assistant:
+  id: va
+  microphone: {microphone: mic, channels: 0, gain_factor: 4}
+  media_player: mp
+  micro_wake_word: mww
+  on_listening:
+    - light.turn_on: {id: led, effect: None}
+    - if:
+        condition:
+          lambda: return id(follow_up);
+        then:
+          - light.turn_on: {id: ring, effect: None, brightness: 40%}
+        else:
+          - light.turn_on: {id: ring, effect: None, brightness: 100%}
+  on_stt_vad_start:
+    - light.turn_on: {id: ring, effect: None, brightness: 100%}
+  on_stt_vad_end:
+    - light.turn_on: {id: led, effect: Thinking}
+    - light.turn_on: {id: ring, effect: Thinking}
+  on_intent_progress:
+    - globals.set: {id: follow_up, value: "true"}
+    - light.turn_on: {id: ring, effect: None, brightness: 70%}
+  on_end:
+    - script.execute: {id: back_to_wake_word, chime: true}
+  on_error:
+    - script.execute: show_error
+  on_client_connected:
+    - light.turn_off: led
+    - light.turn_off: ring
+    - delay: 2s
+    - script.execute: {id: back_to_wake_word, chime: false}
+  on_client_disconnected:
+    - micro_wake_word.stop:
+    - globals.set: {id: follow_up, value: "false"}
+    - light.turn_on: {id: led, effect: Offline}
+    - light.turn_on: {id: ring, effect: Offline, brightness: 1%}
+globals:
+  - {id: follow_up, type: bool, initial_value: "false"}
+script:
+  - id: toggle_listen
+    then:
+      - if:
+          condition:
+            or:
+              - voice_assistant.is_running:
+              - media_player.is_announcing:
+              - script.is_running: start_listening
+          then:
+            - script.stop: start_listening
+            - voice_assistant.stop:
+            - if:
+                condition:
+                  media_player.is_announcing:
+                then:
+                  - media_player.stop: mp
+            - script.execute: {id: back_to_wake_word, chime: true}
+          else:
+            - if:
+                condition:
+                  voice_assistant.connected:
+                then:
+                  - micro_wake_word.stop:
+                  - script.execute: {id: start_listening, wake_word: ""}
+  - id: start_listening
+    parameters:
+      wake_word: string
+    then:
+      - globals.set: {id: follow_up, value: "false"}
+      - light.turn_on: {id: led, effect: None}
+      - light.turn_on: {id: ring, effect: None, brightness: 100%}
+      - media_player.speaker.play_on_device_media_file:
+          media_file: wake_sound
+          announcement: true
+      - wait_until:
+          condition:
+            media_player.is_announcing:
+          timeout: 300ms
+      - wait_until:
+          condition:
+            not:
+              media_player.is_announcing:
+          timeout: 1500ms
+      - delay: 100ms
+      - if:
+          condition:
+            voice_assistant.connected:
+          then:
+            - voice_assistant.start:
+                wake_word: !lambda return wake_word;
+          else:
+            - light.turn_on: {id: led, effect: Offline}
+            - light.turn_on: {id: ring, effect: Offline, brightness: 1%}
+  - id: show_error
+    mode: restart
+    then:
+      - light.turn_on: {id: led, effect: Error}
+      - light.turn_off: {id: ring, transition_length: 0s}
+      - repeat:
+          count: 3
+          then:
+            - light.turn_on: {id: ring, brightness: 100%, transition_length: 200ms}
+            - delay: 200ms
+            - light.turn_off: {id: ring, transition_length: 250ms}
+            - delay: 250ms
+      - delay: 1650ms
+      - if:
+          condition:
+            voice_assistant.connected:
+          then:
+            - light.turn_off: led
+          else:
+            - light.turn_on: {id: led, effect: Offline}
+            - light.turn_on: {id: ring, effect: Offline, brightness: 1%}
+      - if:
+          condition:
+            and:
+              - not:
+                  script.is_running: back_to_wake_word
+              - not:
+                  micro_wake_word.is_running:
+          then:
+            - script.execute: {id: back_to_wake_word, chime: true}
+  - id: back_to_wake_word
+    mode: restart
+    parameters:
+      chime: bool
+    then:
+      - wait_until:
+          condition:
+            media_player.is_announcing:
+          timeout: 0.5s
+      - wait_until:
+          and:
+            - not:
+                voice_assistant.is_running:
+            - not:
+                media_player.is_announcing:
+      - globals.set: {id: follow_up, value: "false"}
+      - if:
+          condition:
+            voice_assistant.connected:
+          then:
+            - if:
+                condition:
+                  not:
+                    script.is_running: show_error
+                then:
+                  - light.turn_off: led
+                  - light.turn_off: ring
+            - if:
+                condition:
+                  lambda: return chime;
+                then:
+                  - media_player.speaker.play_on_device_media_file:
+                      media_file: end_sound
+                      announcement: true
+                  - wait_until:
+                      condition:
+                        media_player.is_announcing:
+                      timeout: 300ms
+                  - wait_until:
+                      condition:
+                        not:
+                          media_player.is_announcing:
+                      timeout: 1500ms
+            - if:
+                condition:
+                  and:
+                    - voice_assistant.connected:
+                    - not:
+                        micro_wake_word.is_running:
+                then:
+                  - micro_wake_word.start:

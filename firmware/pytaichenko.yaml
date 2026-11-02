@@ -1,0 +1,27 @@
+substitutions:
+  name: pytaichenko
+  friendly_name: Питайченко
+packages:
+  base: !include packages/base.yaml
+  audio: !include packages/audio.yaml
+  wake_word: !include packages/wake_word.yaml
+  assistant: !include packages/assistant.yaml
+  ring: !include packages/ring.yaml
+  buttons: !include packages/buttons.yaml
+esphome:
+  name_add_mac_suffix: true
+  project:
+    name: Pytaichenko.Speaker
+    version: "1.0.0"
+wifi:
+api:
+  encryption: {}
+provisioning:
+  timeout: 24h
+  on_timeout:
+    - if:
+        condition:
+          lambda: return api::global_api_server->get_noise_ctx().has_psk();
+        then:
+          - lambda: App.safe_reboot();
+improv_serial:

@@ -1,0 +1,6 @@
+debug:
+  update_interval: 30s
+sensor:
+  - platform: debug
+    free: {name: Heap free}
+    block: {name: Heap max block}

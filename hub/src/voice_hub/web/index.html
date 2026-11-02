@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="uk" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title data-i18n="meta.title">Питайченко — налаштування</title>
+<script src="app.js"></script>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-row">
+    <p class="brand"><span data-i18n="header.name">Питайченко</span> <span class="brand-sub" data-i18n="header.sub">налаштування</span></p>
+    <div class="header-tools">
+      <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="Світла тема" title="Світла тема" data-i18n-attr="aria-label:header.theme_label;title:header.theme_label">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="lang-switch" role="group" aria-label="Мова сторінки" data-i18n-attr="aria-label:header.lang_label">
+        <button type="button" data-set-lang="uk" lang="uk" aria-pressed="true">UA</button>
+        <button type="button" data-set-lang="en" lang="en" aria-pressed="false">EN</button>
+      </div>
+      <button type="button" data-action="logout" data-only-main hidden data-i18n="header.logout">Вийти</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <noscript><p class="banner">Ця сторінка працює лише з увімкненим JavaScript. This page needs JavaScript.</p></noscript>
+
+  <section class="screen" data-screen="loading">
+    <p class="muted" data-i18n="loading">Завантаження…</p>
+  </section>
+
+  <section class="screen narrow" data-screen="offline" hidden>
+    <h1 data-i18n="offline.title">Сервер не відповідає</h1>
+    <p data-i18n="offline.text">Сторінка не може зв'язатися із сервером. Перевірте, що сервер запущений, і спробуйте ще раз.</p>
+    <button type="button" class="primary" data-action="retry" data-i18n="retry">Спробувати ще раз</button>
+  </section>
+
+  <section class="screen narrow" data-screen="host" hidden>
+    <h1 data-i18n="host.title">Сервер не приймає цю адресу</h1>
+    <p data-host-opened></p>
+    <p data-i18n="host.why">Щоб ніхто чужий не дістався налаштувань через підставне ім'я з інтернету, сервер відкриває їх лише за домашньою адресою:</p>
+    <ul class="marks">
+      <li data-i18n="host.ip">IP-адреса, наприклад http://192.0.2.10:8080</li>
+      <li data-i18n="host.label">ім'я без крапок, наприклад http://server:8080</li>
+      <li data-i18n="host.suffix">ім'я, що закінчується на .local, .lan, .home, .internal або .home.arpa</li>
+    </ul>
+    <p data-i18n="host.fix">Якщо ви заходите на сервер за іншим ім'ям (наприклад, через власний домен), додайте це ім'я до змінної VOICE_HUB_HOSTS під час запуску сервера і перезапустіть його. Кілька імен пишуть через кому:</p>
+    <pre class="code"><code data-hosts-line>VOICE_HUB_HOSTS=</code></pre>
+    <button type="button" data-action="retry" data-i18n="retry">Спробувати ще раз</button>
+  </section>
+
+  <section class="screen narrow" data-screen="setup" hidden>
+    <h1 data-i18n="setup.title">Створіть пароль</h1>
+    <p class="lead" data-i18n="setup.lead">Пароль захищає налаштування: ключ OpenAI, колонки й інструкції. Його знатимете лише ви.</p>
+    <p class="hint" data-setup-language data-i18n="setup.language">Асистент розмовлятиме мовою цієї сторінки — українською. Іншу мову можна обрати потім у розділі «Розмова».</p>
+    <form class="card" data-form="setup" method="post" novalidate>
+      <input type="text" name="username" autocomplete="username" value="pytaichenko" hidden>
+      <div class="field">
+        <label for="setup-password" data-i18n="setup.password">Пароль</label>
+        <input id="setup-password" type="password" data-field="password" autocomplete="new-password" maxlength="1024" aria-describedby="setup-password-hint">
+        <p class="hint" id="setup-password-hint" data-i18n="password.rule">Щонайменше 8 символів.</p>
+      </div>
+      <div class="field">
+        <label for="setup-repeat" data-i18n="setup.repeat">Повторіть пароль</label>
+        <input id="setup-repeat" type="password" data-field="repeat" autocomplete="new-password" maxlength="1024">
+      </div>
+      <div class="form-foot">
+        <button type="submit" class="primary" data-i18n="setup.submit">Створити пароль</button>
+        <p class="status" data-status role="status" aria-live="polite"></p>
+      </div>
+    </form>
+    <p class="hint" data-i18n="password.forgot">Якщо колись забудете пароль: запустіть сервер зі змінною VOICE_HUB_PASSWORD — тоді вхід буде за паролем із неї.</p>
+  </section>
+
+  <section class="screen narrow" data-screen="login" hidden>
+    <h1 data-i18n="login.title">Вхід</h1>
+    <p class="note" data-login-note hidden></p>
+    <form class="card" data-form="login" method="post" novalidate>
+      <input type="text" name="username" autocomplete="username" value="pytaichenko" hidden>
+      <div class="field">
+        <label for="login-password" data-i18n="login.password">Пароль</label>
+        <input id="login-password" type="password" data-field="password" autocomplete="current-password" maxlength="1024">
+      </div>
+      <div class="form-foot">
+        <button type="submit" class="primary" data-i18n="login.submit">Увійти</button>
+        <p class="status" data-status role="status" aria-live="polite"></p>
+      </div>
+    </form>
+    <p class="hint" data-login-env hidden data-i18n="login.env">Пароль задано на сервері змінною VOICE_HUB_PASSWORD.</p>
+    <p class="hint" data-login-forgot data-i18n="password.forgot">Якщо колись забудете пароль: запустіть сервер зі змінною VOICE_HUB_PASSWORD — тоді вхід буде за паролем із неї.</p>
+  </section>
+
+  <div class="screen" data-screen="main" hidden>
+    <nav class="tabs" aria-label="Розділи" data-i18n-attr="aria-label:nav.label">
+      <a href="#speakers" data-tab-link="speakers" data-i18n="nav.speakers">Колонки</a>
+      <a href="#conversation" data-tab-link="conversation" data-i18n="nav.conversation">Розмова</a>
+      <a href="#timing" data-tab-link="timing" data-i18n="nav.timing">Часи</a>
+      <a href="#access" data-tab-link="access" data-i18n="nav.access">Доступ</a>
+    </nav>
+    <p class="banner" data-banner="restart" hidden data-i18n="banner.restart">Новий порт або адреса сервера запрацюють після перезапуску сервера.</p>
+    <p class="banner" data-banner="nokey" hidden><span data-i18n="banner.nokey">Ключ OpenAI ще не задано, тож колонки не зможуть відповідати.</span> <a href="#conversation" data-action="goto-key" data-i18n="banner.nokey_link">Вписати ключ</a></p>
+    <p class="banner" data-banner="offline" hidden data-i18n="banner.offline">Немає зв'язку із сервером. Сторінка пробує знову сама.</p>
+    <p class="banner" data-banner="settings" hidden><span data-i18n="banner.settings">Не вдалося завантажити налаштування із сервера. Сторінка пробує знову сама.</span> <button type="button" class="link-button" data-action="reload-settings" data-i18n="retry">Спробувати ще раз</button></p>
+
+    <section class="tab" data-tab="speakers" aria-labelledby="speakers-title">
+      <h1 id="speakers-title" data-i18n="speakers.title">Колонки</h1>
+      <div class="progress" data-progress hidden role="status" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <div>
+          <p><span data-progress-text></span> <span data-progress-time aria-hidden="true"></span></p>
+          <p class="hint" data-i18n="adopt.leave">Можна не чекати: сервер завершить і без цієї сторінки.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="speakers.mine">Ваші колонки</h2>
+        <p class="muted" data-speakers-empty hidden data-i18n="speakers.empty">Колонок ще немає. Увімкніть щойно прошиту колонку — за хвилину вона з'явиться нижче, у розділі «Знайдено в мережі».</p>
+        <ul class="speaker-list" data-speaker-list></ul>
+        <p class="status" data-status="mine" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="found.title">Знайдено в мережі</h2>
+        <p class="hint" data-i18n="found.lead">Нові колонки, які чекають на ключ, з'являються тут самі, поки сторінка відкрита.</p>
+        <ul class="found-list" data-found-list></ul>
+        <p class="muted found-empty" data-found-empty hidden data-i18n="found.empty">Нових колонок поки немає. Щойно прошита колонка з'являється тут приблизно за хвилину після ввімкнення. Якщо її немає, додайте її вручну за адресою з роутера.</p>
+        <p class="status" data-status="found" role="status" aria-live="polite"></p>
+        <details class="more" data-found-others hidden>
+          <summary data-found-others-title></summary>
+          <p class="hint" data-i18n="found.others_hint">Ці пристрої вже мають власний ключ. Якщо серед них є ваша колонка, додайте її вручну з її ключем.</p>
+          <ul class="found-list" data-found-others-list></ul>
+        </details>
+      </div>
+
+      <form class="card" data-form="manual" method="post" novalidate>
+        <h2 data-i18n="manual.title">Додати вручну</h2>
+        <p class="hint" data-i18n="manual.lead">Якщо колонки немає серед знайдених. Її адресу можна подивитися в налаштуваннях роутера.</p>
+        <div class="field-row">
+          <div class="field grow">
+            <label for="manual-host" data-i18n="manual.host">Адреса колонки</label>
+            <input id="manual-host" type="text" data-field="host" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="192.0.2.10">
+          </div>
+          <div class="field port">
+            <label for="manual-port" data-i18n="manual.port">Порт</label>
+            <input id="manual-port" type="text" inputmode="numeric" data-field="port" autocomplete="off">
+          </div>
+        </div>
+        <div class="field">
+          <label for="manual-key"><span data-i18n="manual.key">Ключ колонки</span> <span class="optional" data-i18n="optional">необов'язково</span></label>
+          <input id="manual-key" type="password" data-field="key" data-secret autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" spellcheck="false" autocapitalize="off" aria-describedby="manual-key-hint">
+          <p class="hint" id="manual-key-hint" data-i18n="manual.key_hint">Лише якщо колонку прошито з власним ключем. Для колонки, щойно прошитої зі сторінки проєкту, залиште поле порожнім: сервер сам видасть їй ключ.</p>
+        </div>
+        <div class="form-foot">
+          <button type="submit" class="primary" data-busy-off data-i18n="manual.submit">Додати</button>
+          <p class="status" data-status role="status" aria-live="polite"></p>
+        </div>
+      </form>
+    </section>
+
+    <section class="tab" data-tab="conversation" aria-labelledby="conversation-title" hidden>
+      <h1 id="conversation-title" data-i18n="conversation.title">Розмова</h1>
+      <p class="hint" data-applies></p>
+
+      <form class="card" data-form="openai" method="post" novalidate>
+        <h2 data-i18n="openai.title">OpenAI</h2>
+        <div class="field">
+          <div class="label-row">
+            <label for="openai-key" data-i18n="openai.key">Ключ OpenAI</label>
+            <span class="pill" data-key-state></span>
+          </div>
+          <input id="openai-key" type="password" data-field="openai.api_key" data-secret autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" spellcheck="false" autocapitalize="off" aria-describedby="openai-key-hint">
+          <p class="hint" id="openai-key-hint" data-i18n="openai.key_hint">Ключ створюють на сайті platform.openai.com. Розмови оплачуються за тарифами OpenAI. Ключ зберігається лише на цьому сервері й назад не показується.</p>
+          <button type="button" class="link-button" data-action="clear-key" data-needs-settings hidden data-i18n="openai.key_clear">Прибрати ключ</button>
+        </div>
+        <div class="field">
+          <label for="openai-model" data-i18n="openai.model">Модель</label>
+          <select id="openai-model" data-field="openai.model" aria-describedby="openai-model-hint">
+            <option value="gpt-realtime-2.1-mini">gpt-realtime-2.1-mini</option>
+            <option value="gpt-realtime-2.1">gpt-realtime-2.1</option>
+          </select>
+          <p class="hint" id="openai-model-hint" data-i18n="openai.model_hint">gpt-realtime-2.1-mini — швидша й дешевша; gpt-realtime-2.1 — точніша, але дорожча.</p>
+        </div>
+        <div class="field">
+          <label for="openai-voice" data-i18n="openai.voice">Голос</label>
+          <select id="openai-voice" data-field="openai.voice" aria-describedby="openai-voice-hint">
+            <option value="marin">marin</option>
+            <option value="cedar">cedar</option>
+            <option value="alloy">alloy</option>
+            <option value="ash">ash</option>
+            <option value="ballad">ballad</option>
+            <option value="coral">coral</option>
+            <option value="echo">echo</option>
+            <option value="sage">sage</option>
+            <option value="shimmer">shimmer</option>
+            <option value="verse">verse</option>
+          </select>
+          <p class="hint" id="openai-voice-hint" data-i18n="openai.voice_hint">Голос, яким відповідає асистент. Найприродніше звучать marin і cedar.</p>
+        </div>
+        <div class="field">
+          <label for="openai-reasoning" data-i18n="openai.reasoning">Обмірковування відповіді</label>
+          <select id="openai-reasoning" data-field="openai.reasoning_effort" aria-describedby="openai-reasoning-hint">
+            <option value="" data-i18n="openai.reasoning_none">не вказувати</option>
+            <option value="minimal">minimal</option>
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+          </select>
+          <p class="hint" id="openai-reasoning-hint" data-i18n="openai.reasoning_hint">minimal — найшвидші відповіді. Що вище, то довше асистент думає перед відповіддю.</p>
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" data-field="openai.log_heard" aria-describedby="openai-log-hint"> <span data-i18n="openai.log_heard">Записувати в журнал сервера, що почув асистент</span></label>
+          <p class="hint" id="openai-log-hint" data-i18n="openai.log_heard_hint">Почутий текст з'являтиметься в журналі сервера. Це допомагає зрозуміти, чому асистент відповів не те. Трохи збільшує оплату OpenAI.</p>
+        </div>
+        <details class="more">
+          <summary data-i18n="more">Тонкі налаштування</summary>
+          <div class="field">
+            <label for="openai-vad" data-i18n="openai.vad">Чутливість до голосу</label>
+            <div class="with-unit">
+              <input id="openai-vad" type="text" inputmode="decimal" data-field="openai.vad_threshold" data-decimal autocomplete="off" aria-describedby="openai-vad-hint">
+            </div>
+            <p class="hint" id="openai-vad-hint" data-hint="openai.vad_hint"></p>
+          </div>
+          <div class="field">
+            <label for="openai-silence" data-i18n="openai.silence">Тиша, що завершує питання</label>
+            <div class="with-unit">
+              <input id="openai-silence" type="text" inputmode="numeric" data-field="openai.silence_ms" autocomplete="off" aria-describedby="openai-silence-hint">
+              <span class="unit" data-i18n="unit.ms">мс</span>
+            </div>
+            <p class="hint" id="openai-silence-hint" data-hint="openai.silence_hint"></p>
+          </div>
+        </details>
+        <div class="form-foot">
+          <button type="submit" class="primary" data-i18n="save">Зберегти</button>
+          <span class="unsaved" data-unsaved hidden data-i18n="form.unsaved">Є незбережені зміни</span>
+          <p class="status" data-status role="status" aria-live="polite"></p>
+        </div>
+      </form>
+
+      <form class="card" data-form="assistant" method="post" novalidate>
+        <h2 data-i18n="assistant.title">Асистент</h2>
+        <div class="field">
+          <label for="assistant-language" data-i18n="assistant.language">Мова розмови</label>
+          <select id="assistant-language" data-field="assistant.language" aria-describedby="assistant-language-hint">
+            <option value="uk" lang="uk">Українська</option>
+            <option value="en" lang="en">English</option>
+          </select>
+          <p class="hint" id="assistant-language-hint" data-i18n="assistant.language_hint">Цією мовою асистент слухає й відповідає. Спершу це мова сторінки, якою створювали пароль; перемикач мови сторінки її не змінює.</p>
+          <p class="note" data-language-note hidden data-i18n="assistant.language_note">Якщо інструкції типові, після збереження вони стануть типовими для нової мови. Власний текст лишиться як є.</p>
+        </div>
+        <div class="field">
+          <label for="assistant-instructions" data-i18n="assistant.instructions">Інструкції</label>
+          <textarea id="assistant-instructions" data-field="assistant.instructions" rows="12" spellcheck="true" aria-describedby="assistant-instructions-hint"></textarea>
+          <p class="hint" id="assistant-instructions-hint" data-i18n="assistant.instructions_hint">Як асистентові поводитися й відповідати. Тут можна, наприклад, дати йому ім'я.</p>
+        </div>
+        <div class="form-foot">
+          <button type="submit" class="primary" data-i18n="save">Зберегти</button>
+          <button type="button" data-action="reset-instructions" data-needs-settings data-i18n="assistant.reset">Повернути типові</button>
+          <span class="unsaved" data-unsaved hidden data-i18n="form.unsaved">Є незбережені зміни</span>
+          <p class="status" data-status role="status" aria-live="polite"></p>
+        </div>
+      </form>
+    </section>
+
+    <section class="tab" data-tab="timing" aria-labelledby="timing-title" hidden>
+      <h1 id="timing-title" data-i18n="timing.title">Часи</h1>
+      <p class="hint" data-applies></p>
+      <form class="card" data-form="timing" method="post" novalidate>
+        <p class="hint" data-i18n="timing.lead">Скільки колонка чекає й слухає. Частки секунди можна писати з комою, наприклад 0,4.</p>
+        <div class="fields" data-timing-main></div>
+        <details class="more">
+          <summary data-i18n="more">Тонкі налаштування</summary>
+          <div class="fields" data-timing-more></div>
+        </details>
+        <div class="form-foot">
+          <button type="submit" class="primary" data-i18n="save">Зберегти</button>
+          <button type="button" data-action="timing-defaults" data-needs-settings data-i18n="timing.defaults">Типові значення</button>
+          <span class="unsaved" data-unsaved hidden data-i18n="form.unsaved">Є незбережені зміни</span>
+          <p class="status" data-status role="status" aria-live="polite"></p>
+        </div>
+      </form>
+    </section>
+
+    <section class="tab" data-tab="access" aria-labelledby="access-title" hidden>
+      <h1 id="access-title" data-i18n="access.title">Доступ</h1>
+
+      <form class="card" data-form="password" method="post" novalidate>
+        <h2 data-i18n="password.title">Пароль сторінки</h2>
+        <p data-password-env hidden data-i18n="password.env">Пароль задано на сервері змінною VOICE_HUB_PASSWORD. Щоб змінити його, змініть змінну й перезапустіть сервер.</p>
+        <div data-password-fields>
+          <input type="text" name="username" autocomplete="username" value="pytaichenko" hidden>
+          <div class="field">
+            <label for="password-current" data-i18n="password.current">Поточний пароль</label>
+            <input id="password-current" type="password" data-field="current" autocomplete="current-password" maxlength="1024">
+          </div>
+          <div class="field">
+            <label for="password-new" data-i18n="password.new">Новий пароль</label>
+            <input id="password-new" type="password" data-field="new" autocomplete="new-password" maxlength="1024" aria-describedby="password-new-hint">
+            <p class="hint" id="password-new-hint" data-i18n="password.hint">Щонайменше 8 символів. Після зміни вхід на інших пристроях закриється.</p>
+          </div>
+          <div class="field">
+            <label for="password-repeat" data-i18n="password.repeat">Повторіть новий пароль</label>
+            <input id="password-repeat" type="password" data-field="repeat" autocomplete="new-password" maxlength="1024">
+          </div>
+          <div class="form-foot">
+            <button type="submit" class="primary" data-i18n="password.submit">Змінити пароль</button>
+            <p class="status" data-status role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </form>
+
+      <form class="card" data-form="server" method="post" novalidate>
+        <h2 data-i18n="server.title">Адреса сервера</h2>
+        <p class="hint" data-i18n="server.lead">Зазвичай тут нічого міняти не треба. Зміни запрацюють після перезапуску сервера.</p>
+        <div class="field">
+          <label for="server-port" data-i18n="server.port">Порт сторінки й звуку</label>
+          <div class="with-unit">
+            <input id="server-port" type="text" inputmode="numeric" data-field="http_port" autocomplete="off" aria-describedby="server-port-hint">
+          </div>
+          <p class="hint" id="server-port-hint" data-hint="server.port_hint"></p>
+        </div>
+        <div class="field">
+          <label for="server-advertise" data-i18n="server.advertise">Адреса сервера для колонок</label>
+          <input id="server-advertise" type="text" data-field="advertise_host" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="192.0.2.10" aria-describedby="server-advertise-hint">
+          <p class="hint" id="server-advertise-hint" data-i18n="server.advertise_hint">Колонки забирають звук відповіді за цією адресою. Залиште порожнім, і сервер визначить її сам. Вкажіть, якщо сервер працює в Docker без host-мережі.</p>
+        </div>
+        <div class="form-foot">
+          <button type="submit" class="primary" data-i18n="save">Зберегти</button>
+          <span class="unsaved" data-unsaved hidden data-i18n="form.unsaved">Є незбережені зміни</span>
+          <p class="status" data-status role="status" aria-live="polite"></p>
+        </div>
+      </form>
+
+      <div class="card">
+        <h2 data-i18n="logout.title">Вийти</h2>
+        <p class="hint" data-i18n="logout.text">Вихід лише на цьому пристрої. Колонки працюватимуть і далі.</p>
+        <button type="button" data-action="logout" data-i18n="header.logout">Вийти</button>
+        <p class="status" data-status="logout" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<dialog class="dialog" data-confirm aria-labelledby="confirm-text">
+  <p id="confirm-text" data-confirm-text></p>
+  <div class="dialog-actions">
+    <button type="button" data-confirm-cancel data-i18n="cancel">Скасувати</button>
+    <button type="button" class="danger" data-confirm-ok></button>
+  </div>
+</dialog>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-labelledby="title desc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title id="title">How Pytaichenko works</title>
+  <desc id="desc">You ask the speaker out loud. At home the speaker hears the wake phrase by itself and passes your question to voice-hub, your home server with the settings page and your OpenAI key. voice-hub talks to OpenAI Realtime, and the spoken answer comes back the same way.</desc>
+  <rect x="246" y="32" width="468" height="222" rx="22" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="7 6"/>
+  <rect x="436.9" y="19" width="86.2" height="26" rx="13" fill="#2b2f36" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="480" y="37" font-size="14" font-weight="600" fill="#f0f3f6" text-anchor="middle">At home</text>
+  <path d="M201 134H250" stroke="#e8a33d" stroke-width="3" stroke-linecap="round"/>
+  <path d="M259 134l-11-6.5v13z" fill="#e8a33d"/>
+  <path d="M259 162H212" stroke="#4fb3a5" stroke-width="3" stroke-dasharray="7 6"/>
+  <path d="M201 162l11-6.5v13z" fill="#4fb3a5"/>
+  <path d="M451 134H500" stroke="#e8a33d" stroke-width="3" stroke-linecap="round"/>
+  <path d="M509 134l-11-6.5v13z" fill="#e8a33d"/>
+  <path d="M509 162H462" stroke="#4fb3a5" stroke-width="3" stroke-dasharray="7 6"/>
+  <path d="M451 162l11-6.5v13z" fill="#4fb3a5"/>
+  <path d="M701 134H750" stroke="#e8a33d" stroke-width="3" stroke-linecap="round"/>
+  <path d="M759 134l-11-6.5v13z" fill="#e8a33d"/>
+  <path d="M759 162H712" stroke="#4fb3a5" stroke-width="3" stroke-dasharray="7 6"/>
+  <path d="M701 162l11-6.5v13z" fill="#4fb3a5"/>
+  <g>
+    <rect x="16" y="62" width="178" height="172" rx="16" fill="#2b2f36" stroke="#8b949e" stroke-width="1.5"/>
+    <g fill="none" stroke="#d0d7de" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="101.0" cy="94" r="10"/>
+      <path d="M81.0 126c0-13 9-19 20-19s20 6 20 19"/>
+      <path d="M119.0 88a9 9 0 0 1 0 12" stroke="#e8a33d"/>
+      <path d="M125.0 83a16 16 0 0 1 0 22" stroke="#e8a33d" opacity="0.7"/>
+    </g>
+    <text x="105" y="158" font-size="17" font-weight="600" fill="#f0f3f6" text-anchor="middle">You</text>
+    <text x="105" y="180" font-size="13.5" fill="#b8c0ca" text-anchor="middle">say the wake phrase</text><text x="105" y="198" font-size="13.5" fill="#b8c0ca" text-anchor="middle">and ask</text>
+  </g>
+  <g>
+    <rect x="266" y="62" width="178" height="172" rx="16" fill="#2b2f36" stroke="#8b949e" stroke-width="1.5"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M329.0 97a26 8 0 0 0 52 0" stroke="#e8a33d" stroke-width="9" opacity="0.22"/>
+      <g stroke="#d0d7de" stroke-width="2.2">
+        <ellipse cx="355.0" cy="88" rx="26" ry="8"/>
+        <path d="M329.0 88V122a26 8 0 0 0 52 0V88"/>
+      </g>
+      <path d="M329.0 97a26 8 0 0 0 52 0" stroke="#e8a33d" stroke-width="3"/>
+      <g fill="#d0d7de" stroke="none">
+        <circle cx="345.0" cy="88" r="1.6"/><circle cx="355.0" cy="88" r="1.6"/><circle cx="365.0" cy="88" r="1.6"/>
+        <circle cx="350.0" cy="84.5" r="1.4"/><circle cx="360.0" cy="84.5" r="1.4"/>
+        <circle cx="350.0" cy="91.5" r="1.4"/><circle cx="360.0" cy="91.5" r="1.4"/>
+      </g>
+    </g>
+    <text x="355" y="158" font-size="17" font-weight="600" fill="#f0f3f6" text-anchor="middle">Speaker</text>
+    <text x="355" y="180" font-size="13.5" fill="#b8c0ca" text-anchor="middle">hears the wake phrase</text><text x="355" y="198" font-size="13.5" fill="#b8c0ca" text-anchor="middle">by itself</text>
+  </g>
+  <g>
+    <rect x="516" y="62" width="178" height="172" rx="16" fill="#2b2f36" stroke="#8b949e" stroke-width="1.5"/>
+    <g fill="none" stroke="#d0d7de" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="575.0" y="80" width="60" height="21" rx="4"/>
+      <rect x="575.0" y="107" width="60" height="21" rx="4"/>
+      <path d="M584.0 90.5h22M584.0 117.5h22"/>
+      <circle cx="623.0" cy="90.5" r="2.6" fill="#4fb3a5" stroke="none"/>
+      <circle cx="623.0" cy="117.5" r="2.6" fill="#e8a33d" stroke="none"/>
+    </g>
+    <text x="605" y="158" font-size="17" font-weight="600" fill="#f0f3f6" text-anchor="middle">voice-hub</text>
+    <text x="605" y="180" font-size="13.5" fill="#b8c0ca" text-anchor="middle">your home server,</text><text x="605" y="198" font-size="13.5" fill="#b8c0ca" text-anchor="middle">settings page,</text><text x="605" y="216" font-size="13.5" fill="#b8c0ca" text-anchor="middle">your OpenAI key</text>
+  </g>
+  <g>
+    <rect x="766" y="62" width="178" height="172" rx="16" fill="#2b2f36" stroke="#8b949e" stroke-width="1.5"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M839.00 118.00A10 10 0 0 1 840.12 98.07A15 15 0 0 1 869.49 96.12A11 11 0 0 1 871.00 118.00Z" stroke="#d0d7de" stroke-width="2.2"/>
+      <path d="M846.0 109v-2M852.0 111v-8M858.0 112v-12M864.0 110v-6"
+            stroke="#4fb3a5" stroke-width="2.4"/>
+    </g>
+    <text x="855" y="158" font-size="17" font-weight="600" fill="#f0f3f6" text-anchor="middle">OpenAI Realtime</text>
+    <text x="855" y="180" font-size="13.5" fill="#b8c0ca" text-anchor="middle">understands and</text><text x="855" y="198" font-size="13.5" fill="#b8c0ca" text-anchor="middle">answers by voice</text>
+  </g>
+  <g font-size="14" font-weight="600" fill="#8b949e">
+    <path d="M303.2 281h33" stroke="#e8a33d" stroke-width="3" stroke-linecap="round"/>
+    <path d="M347.2 281l-11-6.5v13z" fill="#e8a33d"/>
+    <text x="357.2" y="286">your question</text>
+    <path d="M548.0 281H515.0" stroke="#4fb3a5" stroke-width="3" stroke-dasharray="7 6"/>
+    <path d="M504.0 281l11-6.5v13z" fill="#4fb3a5"/>
+    <text x="558.0" y="286">spoken answer</text>
+  </g>
+</svg>

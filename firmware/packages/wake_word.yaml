@@ -1,0 +1,19 @@
+micro_wake_word:
+  microphone: {microphone: mic, channels: 0, gain_factor: 4}
+  id: mww
+  vad:
+    model: github://esphome/micro-wake-word-models/models/v2/vad.json@40ff33f57f8fc6ad71a75ef085abbf742495b225
+  models:
+    - model: github://esphome/micro-wake-word-models/models/v2/hey_jarvis.json@40ff33f57f8fc6ad71a75ef085abbf742495b225
+      id: hey_jarvis
+      probability_cutoff: 0.85
+    - model: github://esphome/micro-wake-word-models/models/v2/okay_nabu.json@40ff33f57f8fc6ad71a75ef085abbf742495b225
+      id: okay_nabu
+      probability_cutoff: 0.80
+    - model: github://esphome/micro-wake-word-models/models/v2/hey_mycroft.json@40ff33f57f8fc6ad71a75ef085abbf742495b225
+      id: hey_mycroft
+      probability_cutoff: 0.90
+  on_wake_word_detected:
+    - script.execute:
+        id: start_listening
+        wake_word: !lambda return wake_word;

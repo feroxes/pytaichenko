@@ -1,0 +1,1281 @@
+<!doctype html>
+<html lang="uk" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title data-i18n="meta.title">Питайченко — голосова колонка для розмови з GPT</title>
+<meta name="description" content="Питайченко — голосова колонка з готових плат у надрукованому корпусі: як її зроблено і як повторити." data-i18n-attr="content:meta.description">
+<script src="assets/theme.js"></script>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-row">
+    <a class="brand" href="#about" data-i18n="header.name">Питайченко</a>
+    <div class="header-tools">
+      <a class="repo-link" data-repo-link data-repo-ready="false" target="_blank" rel="noopener noreferrer">
+        <span data-i18n="header.repo">GitHub</span>
+        <span class="repo-soon" data-i18n="header.repo_soon">посилання ще не додано</span>
+      </a>
+      <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="Світла тема" title="Світла тема" data-i18n-attr="aria-label:header.theme_label;title:header.theme_label">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="lang-switch" role="group" aria-label="Мова" data-i18n-attr="aria-label:header.lang_label">
+        <button type="button" data-set-lang="uk" lang="uk" aria-pressed="true">UA</button>
+        <button type="button" data-set-lang="en" lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Зміст" data-i18n-attr="aria-label:toc.title">
+  <details class="toc-box" data-toc open>
+    <summary data-i18n="toc.title">Зміст</summary>
+    <ol>
+      <li><a href="#about" data-i18n="toc.about">Про колонку</a></li>
+      <li><a href="#can" data-i18n="can.title">Що вміє</a></li>
+      <li><a href="#need" data-i18n="need.title">Що знадобиться</a></li>
+      <li><a href="#parts" data-i18n="parts.title">Деталі</a></li>
+      <li><a href="#tools" data-i18n="tools.title">Інструменти</a></li>
+      <li><a href="#print" data-i18n="print.title">Друк корпусу</a></li>
+      <li><a href="#solder" data-i18n="solder.title">Пайка</a></li>
+      <li><a href="#assembly" data-i18n="assembly.title">Збирання</a></li>
+      <li><a href="#firmware" data-i18n="firmware.title">Прошивка</a></li>
+      <li><a href="#server" data-i18n="server.title">Сервер</a></li>
+      <li><a href="#trouble" data-i18n="trouble.title">Якщо щось не так</a></li>
+      <li><a href="#support" data-i18n="support.title">Підтримати проєкт</a></li>
+    </ol>
+  </details>
+</nav>
+
+<main>
+  <section id="about" class="hero">
+    <h1 data-i18n="hero.title">Голосова колонка для розмови з GPT</h1>
+    <p class="lead" data-i18n="hero.lead">Колонка зібрана з готових плат, а корпус надрукований на 3D-принтері. Тут описано, як вона зроблена і як її повторити.</p>
+    <img class="hero-media" src="assets/photo.jpg" width="1200" height="900" alt="Питайченко на столі: круглий чорний корпус із решіткою динаміка зверху й білою смужкою кільця під кришкою" data-i18n-attr="alt:hero.image">
+  </section>
+
+  <section id="can" class="block">
+    <h2 data-i18n="can.title">Що вміє</h2>
+    <ul class="marks">
+      <li data-i18n="can.item1">Вмикається ключовою фразою або кнопкою</li>
+      <li data-i18n="can.wake">Ключову фразу можна обрати з трьох: Hey Jarvis, Okay Nabu або Hey Mycroft</li>
+      <li data-i18n="can.item2">Відповідає голосом</li>
+      <li data-i18n="can.item3">Кільце світлом показує стан</li>
+      <li data-i18n="can.item4">Після відповіді можна питати далі без фрази</li>
+      <li data-i18n="can.item5">«Дякую, все» завершує розмову</li>
+      <li data-i18n="can.item6">Гучність змінюється голосом</li>
+    </ul>
+  </section>
+
+  <section id="need" class="block">
+    <h2 data-i18n="need.title">Що знадобиться</h2>
+    <ul class="marks">
+      <li data-i18n="need.printer">3D-принтер, що друкує PETG і TPU</li>
+      <li data-i18n="need.solder">Паяльник</li>
+      <li data-i18n="need.server">Домашній сервер, на якому працює служба розмови</li>
+      <li data-i18n="need.key">Ключ доступу до API OpenAI</li>
+    </ul>
+    <dl class="facts">
+      <div class="fact">
+        <dt data-i18n="need.time_label">Орієнтовний час друку</dt>
+        <dd id="need-time" data-i18n="need.time_value">близько 7–8 годин</dd>
+      </div>
+      <div class="fact">
+        <dt data-i18n="need.cost_label">Орієнтовна вартість деталей</dt>
+        <dd id="need-cost" data-cost data-i18n="need.cost_pending">Уточнюється</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section id="parts" class="block">
+    <h2 data-i18n="parts.title">Деталі</h2>
+    <div class="section-body">
+      <div class="table-wrap">
+        <table class="parts-table">
+          <caption data-i18n="parts.caption">Кількість вказано на один пристрій.</caption>
+          <thead>
+            <tr>
+              <th scope="col" data-i18n="parts.col.part">Деталь</th>
+              <th scope="col" data-i18n="parts.col.qty">К-сть</th>
+              <th scope="col" data-i18n="parts.col.price">Ціна</th>
+              <th scope="col" data-i18n="parts.col.link">Де взяти</th>
+            </tr>
+          </thead>
+          <tbody data-parts></tbody>
+        </table>
+      </div>
+      <p class="parts-footnote" data-parts-footnote></p>
+    </div>
+  </section>
+
+  <section id="tools" class="block">
+    <h2 data-i18n="tools.title">Інструменти</h2>
+    <div class="section-body">
+      <ul class="marks" data-tools></ul>
+    </div>
+  </section>
+
+  <section id="print" class="block">
+    <h2 data-i18n="print.title">Друк корпусу</h2>
+    <div class="section-body">
+      <p data-i18n="print.intro">Корпус друкується з PETG і TPU. Назва деталі — посилання на її STL-файл; у кожному файлі одна деталь, а число в назві файлу (_x2, _x4) показує, скільки копій друкувати.</p>
+      <p class="print-common" data-i18n="print.common">Для всіх деталей: принтер Bambu Lab X1 Carbon (стіл 256 × 256 мм), сопло 0,4 мм, перший шар 0,2 мм, стінки Arachne.</p>
+      <p class="print-archive"><a href="files/pytaichenko-stl.zip" download data-i18n="print.archive">Усі файли одним архівом (ZIP)</a></p>
+      <p class="print-archive-note" data-i18n="print.archive_note">Архів збирається під час публікації сайту, тож у клонованому репозиторії його немає: там ці самі файли лежать у папці case/stl.</p>
+      <div class="print-groups" data-print></div>
+      <p class="print-estimate" data-i18n="print.estimate">Оцінка слайсера Bambu Studio на X1 Carbon з цими налаштуваннями, без опор під трьома бобишками тіла: PETG близько 7 годин і 120 г, TPU близько пів години і 4 г. Справжній час залежить від принтера й швидкостей.</p>
+      <h3 data-i18n="print.how.title">Як друкувати</h3>
+      <ul class="marks">
+        <li data-i18n="print.how.orient">Усі файли вже лежать у правильному положенні, у слайсері нічого повертати не треба: дугу друкують пласким боком на столі, ковпачок кнопки догори дном, верх лицем на стіл.</li>
+        <li data-i18n="print.how.supports">Опори (підтримки) потрібні лише в тілі. У Bambu Studio намалюйте їх вручну («Paint-on supports») під трьома бобишками для гвинтів дна: це виступи на внутрішній стінці біля дна. Місця, які принтер перекриває «мостами», підпирати не треба.</li>
+        <li data-i18n="print.how.layer">PETG-деталі друкуйте шаром 0,16 мм: висоту дуг кільця підігнано під тіло, надруковане таким шаром. З тоншим шаром (наприклад, 0,12 мм) дуги вийдуть нижчими за перемички на 0,04 мм: верх ляже на перемички, а дуги матимуть люфт.</li>
+        <li data-i18n="print.how.walls">Arachne — режим генерації стінок у Bambu Studio, у стандартному профілі стоїть Classic. Для дуги перемкніть на Arachne: стінка перед ниткою лише 0,6 мм, і слайсер має покласти її однією-двома лініями.</li>
+        <li data-i18n="print.how.tpu">TPU-деталі друкуйте шаром 0,1 мм із заповненням 100 %: основа прокладки лотка завтовшки 0,3 мм виходить рівно у два шари.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="solder" class="block">
+    <h2 data-i18n="solder.title">Пайка</h2>
+    <div class="section-body">
+      <p class="solder-intro" data-i18n="solder.intro">Мікрофон, підсилювач із конденсатором, джгут транзистора з нитками кільця й кнопку паяють на столі, лишаючи другі кінці дротів вільними, а дроти на DevKit паяють уже на етапі 4 збирання, коли плати лежать у лотку.</p>
+      <h3 id="h-mic" data-i18n="solder.mic.title">Мікрофон</h3>
+      <figure class="stepper" data-stepper="mic" data-steps="5" aria-labelledby="h-mic" data-scroll-hint="Малюнок гортається вбік →" data-i18n-attr="data-scroll-hint:steps.scroll_hint">
+        <div class="stepper-frame">
+          <svg role="img" aria-label="Покрокова пайка мікрофона INMP441: дротик L/R–GND, дроти VDD, GND, SD, WS і SCK з боку чипа, хвости зрізані з боку отвору для звуку." data-i18n-attr="aria-label:steps.mic.alt" width="100%" viewBox="0 0 680 340" style="font-family:var(--font-sans)">
+            <defs><marker id="mic-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" style="stroke:var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+      <g data-s="1">
+      <circle cx="230" cy="170" r="104" fill="#1F5F6B" stroke="#8C9098" stroke-width="1"/>
+      <rect x="210" y="148" width="40" height="44" rx="6" fill="#B9BDC4" stroke="#8C9098" stroke-width="1"/>
+      <text x="230" y="174" text-anchor="middle" style="fill:#1E1E1E;font-size:11px;font-weight:500" data-i18n="steps.mic.chip">чип</text>
+      <circle cx="168" cy="132" r="9" fill="#C9A227"/><circle cx="168" cy="132" r="3.5" fill="#1E1E1E"/>
+      <text x="179" y="136" style="fill:#EAF4F6;font-size:12px;font-weight:500" data-i18n="steps.common.sck">SCK</text>
+      <circle cx="168" cy="170" r="9" fill="#C9A227"/><circle cx="168" cy="170" r="3.5" fill="#1E1E1E"/>
+      <text x="179" y="174" style="fill:#EAF4F6;font-size:12px;font-weight:500" data-i18n="steps.common.ws">WS</text>
+      <circle cx="168" cy="208" r="9" fill="#C9A227"/><circle cx="168" cy="208" r="3.5" fill="#1E1E1E"/>
+      <text x="179" y="212" style="fill:#EAF4F6;font-size:12px;font-weight:500" data-i18n="steps.common.lr">L/R</text>
+      <circle cx="292" cy="132" r="9" fill="#C9A227"/><circle cx="292" cy="132" r="3.5" fill="#1E1E1E"/>
+      <text x="281" y="136" text-anchor="end" style="fill:#EAF4F6;font-size:12px;font-weight:500" data-i18n="steps.common.sd">SD</text>
+      <circle cx="292" cy="170" r="9" fill="#C9A227"/><circle cx="292" cy="170" r="3.5" fill="#1E1E1E"/>
+      <text x="281" y="174" text-anchor="end" style="fill:#EAF4F6;font-size:12px;font-weight:500" data-i18n="steps.common.vdd">VDD</text>
+      <circle cx="292" cy="208" r="9" fill="#C9A227"/><circle cx="292" cy="208" r="3.5" fill="#1E1E1E"/>
+      <text x="281" y="212" text-anchor="end" style="fill:#EAF4F6;font-size:12px;font-weight:500" data-i18n="steps.common.gnd">GND</text>
+      <text x="230" y="296" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.side_chip">з боку чипа</text>
+      <text x="230" y="318" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.order_note">так на поширеній платі; паяйте за написами на своїй</text>
+      </g>
+      <g data-s="2">
+      <path d="M168 208 C190 240 270 240 292 208" fill="none" stroke="#C9CCD2" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="168" cy="208" r="5.5" fill="#D5D8DD"/><circle cx="292" cy="208" r="5.5" fill="#D5D8DD"/>
+      <path d="M126 240 L185 225" fill="none" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="122" y="244" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.jumper">дротик L/R — GND</text>
+      </g>
+      <g data-s="3">
+      <path d="M292 170 H390" fill="none" stroke="#E24B4A" stroke-width="3" stroke-linecap="round"/>
+      <path d="M292 208 H390" fill="none" stroke="#6E6E6A" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="292" cy="170" r="5.5" fill="#D5D8DD"/><circle cx="292" cy="208" r="5.5" fill="#D5D8DD"/>
+      <text x="396" y="174" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.w_vdd">VDD · 11 см</text>
+      <text x="396" y="212" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.w_gnd">GND · 11,5 см</text>
+      </g>
+      <g data-s="4">
+      <path d="M168 170 H90" fill="none" stroke="#E3B505" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="168" cy="170" r="5.5" fill="#D5D8DD"/>
+      <text x="84" y="174" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.w_ws">WS · 8 см</text>
+      <path d="M168 132 H90" fill="none" stroke="#378ADD" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="168" cy="132" r="5.5" fill="#D5D8DD"/>
+      <text x="84" y="136" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.w_sck">SCK · 6 см</text>
+      <path d="M292 132 H390" fill="none" stroke="#1D9E75" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="292" cy="132" r="5.5" fill="#D5D8DD"/>
+      <text x="396" y="136" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.w_sd">SD · 6,5 см</text>
+      </g>
+      <g data-s="5">
+      <path d="M350 100 Q420 58 492 100" fill="none" style="stroke:var(--text-primary)" stroke-width="1.5" marker-end="url(#mic-arrow)"/>
+      <text x="420" y="62" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.flip">переверніть</text>
+      <circle cx="575" cy="150" r="64" fill="#1F5F6B" stroke="#8C9098" stroke-width="1"/>
+      <circle cx="575" cy="150" r="15" fill="#C9A227"/>
+      <circle cx="575" cy="150" r="7" fill="#0B0B0B" stroke="#8C9098" stroke-width="1"/>
+      <circle cx="539" cy="127" r="4.5" fill="#D5D8DD" stroke="#8C9098" stroke-width="1"/>
+      <circle cx="539" cy="150" r="4.5" fill="#D5D8DD" stroke="#8C9098" stroke-width="1"/>
+      <circle cx="539" cy="173" r="4.5" fill="#D5D8DD" stroke="#8C9098" stroke-width="1"/>
+      <circle cx="611" cy="127" r="4.5" fill="#D5D8DD" stroke="#8C9098" stroke-width="1"/>
+      <circle cx="611" cy="150" r="4.5" fill="#D5D8DD" stroke="#8C9098" stroke-width="1"/>
+      <circle cx="611" cy="173" r="4.5" fill="#D5D8DD" stroke="#8C9098" stroke-width="1"/>
+      <text x="575" y="70" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.flat_title">бік з отвором</text>
+      <text x="575" y="238" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.flat_hole">отвір для звуку</text>
+      <text x="575" y="258" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.mic.flat_trim">хвости врівень з платою</text>
+      <text x="575" y="280" text-anchor="middle" style="fill:#E24B4A;font-size:12px;font-weight:500" data-i18n="steps.mic.flat_poke">не тицяти в отвір</text>
+      </g>
+          </svg>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Плата INMP441 без впаяних штирів, вигляд з боку чипа: дроти паяються прямо на її шість контактів. Другий бік з отвором для звуку лишається рівним, бо піде до стінки корпусу.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 5</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 id="h-capacitor" data-i18n="solder.capacitor.title">Підсилювач і конденсатор</h3>
+      <figure class="stepper" data-stepper="capacitor" data-steps="9" aria-labelledby="h-capacitor" data-scroll-hint="Малюнок гортається вбік →" data-i18n-attr="data-scroll-hint:steps.scroll_hint">
+        <div class="stepper-frame">
+          <svg role="img" aria-label="Покрокова пайка підсилювача MAX98357A: гребінка й клемник, пропаяні знизу, хвости врівень з платою, конденсатор 1000 мкФ на штирі VIN і GND, дроти до кінчиків штирів і перевірка мультиметром." data-i18n-attr="aria-label:steps.capacitor.alt" width="100%" viewBox="-20 0 700 340" style="font-family:var(--font-sans)">
+            <g data-only="1">
+              <text x="360" y="40" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="steps.capacitor.side">підсилювач збоку</text>
+              <rect x="226" y="96" width="4" height="124" fill="#C9A227"/>
+              <rect x="238" y="96" width="4" height="124" fill="#C9A227"/>
+              <rect x="250" y="96" width="4" height="124" fill="#C9A227"/>
+              <rect x="200" y="196" width="320" height="12" rx="2" fill="#5B3A8C"/>
+              <rect x="214" y="182" width="48" height="14" rx="1" fill="#1E1E1E" stroke="#6B6B66" stroke-width="1"/>
+              <circle cx="228" cy="210" r="4" fill="#A8ADB5"/>
+              <circle cx="240" cy="210" r="4" fill="#A8ADB5"/>
+              <circle cx="252" cy="210" r="4" fill="#A8ADB5"/>
+              <text x="238" y="82" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.labels_edge">край з написами LRC … VIN</text>
+              <text x="270" y="128" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.header">гребінка: пластик зверху, довгі штирі вгору</text>
+              <text x="240" y="240" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.solder_below">пайка знизу</text>
+            </g>
+            <g data-only="2">
+              <text x="360" y="40" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="steps.capacitor.side">підсилювач збоку</text>
+              <rect x="226" y="96" width="4" height="124" fill="#C9A227"/>
+              <rect x="238" y="96" width="4" height="124" fill="#C9A227"/>
+              <rect x="250" y="96" width="4" height="124" fill="#C9A227"/>
+              <rect x="448" y="190" width="4" height="30" fill="#C9A227"/>
+              <rect x="476" y="190" width="4" height="30" fill="#C9A227"/>
+              <rect x="200" y="196" width="320" height="12" rx="2" fill="#5B3A8C"/>
+              <rect x="214" y="182" width="48" height="14" rx="1" fill="#1E1E1E" stroke="#6B6B66" stroke-width="1"/>
+              <circle cx="228" cy="210" r="4" fill="#A8ADB5"/>
+              <circle cx="240" cy="210" r="4" fill="#A8ADB5"/>
+              <circle cx="252" cy="210" r="4" fill="#A8ADB5"/>
+              <rect x="432" y="166" width="64" height="30" rx="2" fill="#2E8B57"/>
+              <circle cx="450" cy="166" r="5" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/><circle cx="478" cy="166" r="5" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="489" y="174" width="6" height="12" rx="1" fill="#1E1E1E"/>
+              <circle cx="450" cy="210" r="4" fill="#A8ADB5"/>
+              <circle cx="478" cy="210" r="4" fill="#A8ADB5"/>
+              <text x="238" y="82" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.labels_edge">край з написами LRC … VIN</text>
+              <text x="270" y="128" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.header">гребінка: пластик зверху, довгі штирі вгору</text>
+              <text x="464" y="150" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.terminal">клемник: той самий бік, отвори назовні</text>
+              <text x="240" y="240" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.solder_below">пайка знизу</text>
+              <text x="464" y="240" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.solder_below">пайка знизу</text>
+            </g>
+            <g data-only="3">
+              <text x="360" y="40" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="steps.capacitor.side">підсилювач збоку</text>
+              <rect x="226" y="96" width="4" height="112" fill="#C9A227"/>
+              <rect x="238" y="96" width="4" height="112" fill="#C9A227"/>
+              <rect x="250" y="96" width="4" height="112" fill="#C9A227"/>
+              <rect x="448" y="190" width="4" height="18" fill="#C9A227"/>
+              <rect x="476" y="190" width="4" height="18" fill="#C9A227"/>
+              <rect x="200" y="196" width="320" height="12" rx="2" fill="#5B3A8C"/>
+              <rect x="214" y="182" width="48" height="14" rx="1" fill="#1E1E1E" stroke="#6B6B66" stroke-width="1"/>
+              <circle cx="228" cy="210" r="3" fill="#A8ADB5"/>
+              <circle cx="240" cy="210" r="3" fill="#A8ADB5"/>
+              <circle cx="252" cy="210" r="3" fill="#A8ADB5"/>
+              <rect x="432" y="166" width="64" height="30" rx="2" fill="#2E8B57"/>
+              <circle cx="450" cy="166" r="5" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/><circle cx="478" cy="166" r="5" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="489" y="174" width="6" height="12" rx="1" fill="#1E1E1E"/>
+              <circle cx="450" cy="210" r="3" fill="#A8ADB5"/>
+              <circle cx="478" cy="210" r="3" fill="#A8ADB5"/>
+              <text x="238" y="82" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.labels_edge">край з написами LRC … VIN</text>
+              <text x="270" y="128" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.header">гребінка: пластик зверху, довгі штирі вгору</text>
+              <text x="464" y="150" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.terminal">клемник: той самий бік, отвори назовні</text>
+              <line x1="196" y1="214" x2="524" y2="214" stroke="#E24B4A" stroke-width="2" stroke-dasharray="4 3"/>
+              <text x="360" y="240" text-anchor="middle" style="fill:#E24B4A;font-size:12px;font-weight:500" data-i18n="steps.capacitor.trim">хвости врівень з платою</text>
+            </g>
+            <g data-s="4">
+              <rect x="150" y="100" width="200" height="200" rx="6" fill="#5B3A8C"/>
+              <text x="290" y="124" text-anchor="middle" style="fill:#F1ECFA;font-size:12px;font-weight:500" data-i18n="steps.common.max">MAX98357A</text>
+              <rect x="162" y="112" width="22" height="176" rx="2" fill="#1E1E1E"/>
+              <circle cx="173" cy="125" r="5" fill="#C9A227"/><circle cx="173" cy="150" r="5" fill="#C9A227"/><circle cx="173" cy="175" r="5" fill="#C9A227"/><circle cx="173" cy="200" r="5" fill="#C9A227"/><circle cx="173" cy="225" r="5" fill="#C9A227"/><circle cx="173" cy="250" r="5" fill="#C9A227"/><circle cx="173" cy="275" r="5" fill="#C9A227"/>
+              <text x="192" y="129" style="fill:#F1ECFA;font-size:12px" data-i18n="steps.common.lrc">LRC</text>
+              <text x="192" y="154" style="fill:#F1ECFA;font-size:12px" data-i18n="steps.common.bclk">BCLK</text>
+              <text x="192" y="179" style="fill:#F1ECFA;font-size:12px" data-i18n="steps.common.din">DIN</text>
+              <text x="192" y="204" style="fill:#F1ECFA;font-size:12px" data-i18n="steps.common.gain">GAIN</text>
+              <text x="192" y="229" style="fill:#F1ECFA;font-size:12px" data-i18n="steps.common.sd">SD</text>
+              <text x="192" y="254" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.common.gnd">GND</text>
+              <text x="192" y="279" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.common.vin">VIN</text>
+              <circle cx="173" cy="250" r="9" fill="none" stroke="#B4B2A9" stroke-width="2"/>
+              <circle cx="173" cy="275" r="9" fill="none" stroke="#E24B4A" stroke-width="2"/>
+              <rect x="296" y="160" width="44" height="80" rx="3" fill="#2E8B57"/>
+              <circle cx="318" cy="182" r="8" fill="#C9CCD2"/><circle cx="318" cy="218" r="8" fill="#C9CCD2"/>
+              <text x="340" y="153" text-anchor="end" style="fill:#F1ECFA;font-size:12px" data-i18n="steps.capacitor.to_speaker">до динаміка</text>
+            </g>
+            <g data-s="5">
+              <rect x="20" y="244" width="110" height="36" rx="8" fill="#1B3A6B" stroke="#6C86B8" stroke-width="1"/>
+              <rect x="20" y="244" width="110" height="11" rx="4" fill="#CFD8E3"/>
+              <text x="75" y="253" text-anchor="middle" style="fill:#1B3A6B;font-size:11px;font-weight:500" data-i18n="steps.capacitor.stripe">−  −  −  −</text>
+              <text x="75" y="272" text-anchor="middle" style="fill:#EDEDED;font-size:11px" data-i18n="steps.capacitor.value">1000 мкФ</text>
+              <line x1="130" y1="250" x2="142" y2="250" stroke="#9A9EA6" stroke-width="2.5"/>
+              <line x1="130" y1="274" x2="158" y2="274" stroke="#9A9EA6" stroke-width="2.5"/>
+              <text x="75" y="236" text-anchor="middle" data-hide="8" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.stripe_note">смужка = «−», коротка ніжка</text>
+              <text x="75" y="298" text-anchor="middle" data-hide="8" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.long_leg">довга ніжка = «+»</text>
+            </g>
+            <g data-s="6">
+              <line data-hide="7" x1="142" y1="250" x2="168" y2="250" stroke="#9A9EA6" stroke-width="2.5"/>
+              <line data-hide="7" x1="158" y1="274" x2="168" y2="275" stroke="#9A9EA6" stroke-width="2.5"/>
+              <circle cx="173" cy="250" r="6" fill="#A8ADB5"/>
+              <circle cx="173" cy="275" r="6" fill="#A8ADB5"/>
+            </g>
+            <g data-s="7">
+              <path d="M142 250 L151 235 L167 235 L173 250" fill="none" stroke="#9A9EA6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="M158 274 L160 294 L168 294 L173 275" fill="none" stroke="#9A9EA6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+              <text x="8" y="318" data-hide="8" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.on_side">лежить на боці, не вище штирів</text>
+            </g>
+            <g data-s="8">
+              <path d="M173 125 H96" fill="none" stroke="#B8431F" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M173 150 H96" fill="none" stroke="#B8431F" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M173 175 H96" fill="none" stroke="#B8431F" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M173 250 L162 242 V200 H96" fill="none" stroke="#B8431F" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="M173 275 L156 266 V214 H96" fill="none" stroke="#B8431F" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+              <text x="90" y="129" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.w_lrc">LRC · 7 см</text>
+              <text x="90" y="154" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.w_bclk">BCLK · 7 см</text>
+              <text x="90" y="179" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.w_din">DIN · 3,5 см</text>
+              <text x="90" y="204" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.w_gnd">GND · 7 см</text>
+              <text x="90" y="218" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.capacitor.w_vin">VIN · 8 см</text>
+            </g>
+            <g data-only="9">
+              <path d="M173 250 L400 214" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+              <path d="M173 275 L400 262" fill="none" stroke="#6E6E6A" stroke-width="2.5"/>
+              <rect x="400" y="190" width="120" height="120" rx="10" fill="#E3B505"/>
+              <rect x="414" y="204" width="92" height="36" rx="4" fill="#CFE3CF"/>
+              <text x="460" y="227" text-anchor="middle" style="fill:#173404;font-size:12px;font-weight:500" data-i18n="steps.capacitor.silence">тиша</text>
+              <circle cx="460" cy="276" r="18" fill="#2B2B2B"/>
+              <text x="460" y="330" text-anchor="middle" style="fill:var(--text-secondary);font-size:11px" data-i18n="steps.capacitor.beep_ok">короткий пік на початку — теж норма</text>
+            </g>
+          </svg>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Семипінову гребінку вставте з верхнього боку вздовж краю з написами LRC … VIN: чорний пластик лежить на платі, довгі штирі дивляться вгору. Пропаяйте кожен штир знизу.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 9</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 id="h-ring" data-i18n="solder.ring.title">Транзистор кільця</h3>
+      <figure class="stepper" data-stepper="ring" data-steps="9" aria-labelledby="h-ring" data-scroll-hint="Малюнок гортається вбік →" data-i18n-attr="data-scroll-hint:steps.scroll_hint">
+        <div class="stepper-frame">
+          <svg role="img" aria-label="Покрокова пайка транзистора й ниток кільця: полярність ниток батарейкою CR2032, ніжки G, D, S, резистори 6,2 кОм і 47 Ом, дроти на D4, GND і VIN плати ESP32, сині дроти до контактів «−» і червоні з резисторами 47 Ом до контактів «+» обох ниток." data-i18n-attr="aria-label:steps.ring.alt" width="100%" viewBox="0 0 680 450" style="font-family:var(--font-sans)">
+            <g data-only="1">
+              <path d="M318 220 C318 110 110 110 110 210 C110 320 362 336 362 284" fill="none" stroke="#F5B841" stroke-width="14" stroke-linecap="round" opacity="0.3"/>
+              <path d="M318 220 C318 110 110 110 110 210 C110 320 362 336 362 284" fill="none" stroke="#A3781A" stroke-width="7" stroke-linecap="round"/>
+              <path d="M318 220 C318 110 110 110 110 210 C110 320 362 336 362 284" fill="none" stroke="#F5B841" stroke-width="5" stroke-linecap="round"/>
+              <rect x="315" y="216" width="7" height="24" rx="1" fill="#A8ADB5"/>
+              <rect x="359" y="262" width="7" height="24" rx="1" fill="#A8ADB5"/>
+              <rect x="276" y="240" width="128" height="22" rx="4" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <text x="340" y="255" text-anchor="middle" style="fill:#1E1E1E;font-size:11px;font-weight:500" data-i18n="steps.ring.battery">CR2032, «+» зверху</text>
+              <circle cx="298" cy="222" r="9" fill="#E24B4A"/><text x="298" y="227" text-anchor="middle" style="fill:#fff;font-size:14px;font-weight:500" data-i18n="steps.common.plus">+</text>
+              <text x="282" y="200" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.ring.mark_plus">позначте «+» маркером</text>
+              <text x="214" y="104" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.ring.lights">світиться лише так</text>
+            </g>
+            <g data-s="2">
+              <rect x="292" y="30" width="96" height="44" rx="3" fill="#B9BDC4" stroke="#8C9098" stroke-width="1"/>
+              <circle cx="340" cy="50" r="9" fill="#8C9098"/>
+              <rect x="288" y="72" width="104" height="96" rx="4" fill="#1E1E1E" stroke="#6B6B66" stroke-width="1"/>
+              <text x="340" y="124" text-anchor="middle" style="fill:#EDEDED;font-size:14px;font-weight:500" data-i18n="steps.common.irlz">IRLZ44N</text>
+              <rect x="307.5" y="166" width="5" height="98" rx="2.5" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="337.5" y="166" width="5" height="98" rx="2.5" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="367.5" y="166" width="5" height="98" rx="2.5" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <circle cx="310" cy="190" r="10" fill="#7F77DD"/><text x="310" y="195" text-anchor="middle" style="fill:#fff;font-size:12px;font-weight:500" data-i18n="steps.common.g">G</text>
+              <circle cx="340" cy="190" r="10" fill="#378ADD"/><text x="340" y="195" text-anchor="middle" style="fill:#fff;font-size:12px;font-weight:500" data-i18n="steps.common.d">D</text>
+              <circle cx="370" cy="190" r="10" fill="#5F5E5A"/><text x="370" y="195" text-anchor="middle" style="fill:#fff;font-size:12px;font-weight:500" data-i18n="steps.common.s">S</text>
+            </g>
+            <g data-s="3">
+              <line x1="310" y1="222" x2="324" y2="222" stroke="#9A9EA6" stroke-width="2"/>
+              <line x1="356" y1="222" x2="370" y2="222" stroke="#9A9EA6" stroke-width="2"/>
+              <rect x="322" y="214" width="36" height="16" rx="7" fill="#D9C79E" stroke="#8C9098" stroke-width="1"/>
+              <rect x="328" y="214" width="3" height="16" fill="#2F6FD0"/><rect x="334" y="214" width="3" height="16" fill="#C8312B"/><rect x="340" y="214" width="3" height="16" fill="#C8312B"/><rect x="350" y="214" width="3" height="16" fill="#C9A227"/>
+              <circle cx="310" cy="222" r="3.5" fill="#A8ADB5"/><circle cx="370" cy="222" r="3.5" fill="#A8ADB5"/>
+              <text x="382" y="226" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.ring.res_gs">6,2 кОм</text>
+            </g>
+            <g data-s="4">
+              <line x1="310" y1="262" x2="310" y2="272" stroke="#9A9EA6" stroke-width="2"/>
+              <rect x="302" y="272" width="16" height="34" rx="7" fill="#D9C79E" stroke="#8C9098" stroke-width="1"/>
+              <rect x="302" y="278" width="16" height="3" fill="#E8C21A"/><rect x="302" y="284" width="16" height="3" fill="#7A3EA1"/><rect x="302" y="290" width="16" height="3" fill="#111111"/><rect x="302" y="299" width="16" height="3" fill="#C9A227"/>
+              <line x1="310" y1="306" x2="310" y2="318" stroke="#9A9EA6" stroke-width="2"/>
+              <text x="296" y="293" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.ring.res_47">47 Ом</text>
+            </g>
+            <g data-s="5">
+              <path d="M310 318 L310 330 L196 330" fill="none" stroke="#E3B505" stroke-width="3" stroke-linejoin="round"/>
+              <rect x="40" y="316" width="156" height="28" rx="6" fill="#0F6E56"/>
+              <text x="118" y="335" text-anchor="middle" style="fill:#fff;font-size:13px;font-weight:500" data-i18n="steps.common.d4_esp">D4 на ESP32</text>
+            </g>
+            <g data-s="6">
+              <path d="M370 262 L370 274 L470 274" fill="none" stroke="#6E6E6A" stroke-width="3" stroke-linejoin="round"/>
+              <rect x="470" y="260" width="170" height="28" rx="6" fill="#0F6E56"/>
+              <text x="555" y="279" text-anchor="middle" style="fill:#fff;font-size:13px;font-weight:500" data-i18n="steps.common.gnd_esp">GND на ESP32</text>
+            </g>
+            <g data-s="7">
+              <rect x="380" y="356" width="210" height="7" rx="3.5" fill="#F5B841" stroke="#A3781A" stroke-width="1"/>
+              <rect x="380" y="401" width="210" height="7" rx="3.5" fill="#F5B841" stroke="#A3781A" stroke-width="1"/>
+              <rect x="381" y="356" width="12" height="7" rx="1" fill="#A8ADB5"/>
+              <rect x="577" y="356" width="12" height="7" rx="1" fill="#A8ADB5"/>
+              <rect x="381" y="401" width="12" height="7" rx="1" fill="#A8ADB5"/>
+              <rect x="577" y="401" width="12" height="7" rx="1" fill="#A8ADB5"/>
+              <text x="485" y="346" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.ring.fil1">нитка 1</text>
+              <text x="485" y="391" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.ring.fil2">нитка 2</text>
+              <path d="M340 262 L340 404" fill="none" stroke="#378ADD" stroke-width="3"/>
+              <path d="M340 360 L363 360 M340 404 L363 404" fill="none" stroke="#378ADD" stroke-width="3"/>
+              <circle cx="340" cy="360" r="4" fill="#378ADD"/>
+              <circle cx="372" cy="360" r="9" fill="#378ADD"/><text x="372" y="365" text-anchor="middle" style="fill:#fff;font-size:14px;font-weight:500" data-i18n="steps.common.minus">−</text>
+              <circle cx="372" cy="404" r="9" fill="#378ADD"/><text x="372" y="409" text-anchor="middle" style="fill:#fff;font-size:14px;font-weight:500" data-i18n="steps.common.minus">−</text>
+            </g>
+            <g data-s="8">
+              <circle cx="598" cy="360" r="9" fill="#E24B4A"/><text x="598" y="365" text-anchor="middle" style="fill:#fff;font-size:14px;font-weight:500" data-i18n="steps.common.plus">+</text>
+              <circle cx="598" cy="404" r="9" fill="#E24B4A"/><text x="598" y="409" text-anchor="middle" style="fill:#fff;font-size:14px;font-weight:500" data-i18n="steps.common.plus">+</text>
+              <line x1="607" y1="360" x2="614" y2="360" stroke="#9A9EA6" stroke-width="2"/><line x1="607" y1="404" x2="614" y2="404" stroke="#9A9EA6" stroke-width="2"/>
+              <rect x="614" y="352" width="30" height="16" rx="7" fill="#D9C79E" stroke="#8C9098" stroke-width="1"/>
+              <rect x="619" y="352" width="3" height="16" fill="#E8C21A"/><rect x="624" y="352" width="3" height="16" fill="#7A3EA1"/><rect x="629" y="352" width="3" height="16" fill="#111111"/><rect x="638" y="352" width="3" height="16" fill="#C9A227"/>
+              <rect x="614" y="396" width="30" height="16" rx="7" fill="#D9C79E" stroke="#8C9098" stroke-width="1"/>
+              <rect x="619" y="396" width="3" height="16" fill="#E8C21A"/><rect x="624" y="396" width="3" height="16" fill="#7A3EA1"/><rect x="629" y="396" width="3" height="16" fill="#111111"/><rect x="638" y="396" width="3" height="16" fill="#C9A227"/>
+              <path d="M644 360 L656 360 M644 404 L656 404 L656 54 L650 54" fill="none" stroke="#E24B4A" stroke-width="3" stroke-linejoin="round"/>
+              <circle cx="656" cy="360" r="4" fill="#E24B4A"/>
+              <rect x="500" y="40" width="150" height="28" rx="6" fill="#A32D2D"/>
+              <text x="575" y="59" text-anchor="middle" style="fill:#fff;font-size:13px;font-weight:500" data-i18n="steps.common.vin_esp">VIN на ESP32</text>
+              <text x="629" y="434" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.ring.each_47">по 47 Ом</text>
+            </g>
+            <g data-s="9">
+              <rect x="286" y="25" width="108" height="54" rx="6" fill="none" stroke="#E24B4A" stroke-width="2" stroke-dasharray="5 3"/>
+              <text x="278" y="56" text-anchor="end" style="fill:#E24B4A;font-size:12px;font-weight:500" data-i18n="steps.ring.tab">пластина з'єднана з D</text>
+            </g>
+          </svg>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Спершу знайдіть «+» кожної нитки: притисніть її кінці до двох боків батарейки CR2032. Нитка світиться лише в одному положенні, і кінець, що торкається «+» батарейки, позначте маркером «+».</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 9</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 id="h-button" data-i18n="solder.button.title">Кнопка зверху</h3>
+      <figure class="stepper" data-stepper="button" data-steps="6" aria-labelledby="h-button" data-scroll-hint="Малюнок гортається вбік →" data-i18n-attr="data-scroll-hint:steps.scroll_hint">
+        <div class="stepper-frame">
+          <svg role="img" aria-label="Покрокова пайка кнопки 12 на 12: знайти внутрішні ніжки, перевірити мультиметром, обрізати зовнішні, припаяти дроти на D19 і GND плати ESP32." data-i18n-attr="aria-label:steps.button.alt" width="100%" viewBox="0 0 680 360" style="font-family:var(--font-sans)">
+            <defs><marker id="button-arrow-dim" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" style="stroke:var(--text-secondary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="button-arrow-main" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" style="stroke:var(--text-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+            <g data-s="1">
+              <rect data-hide="3" x="226" y="151" width="20" height="12" rx="2" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect data-hide="3" x="226" y="217" width="20" height="12" rx="2" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="244" y="151" width="8" height="12" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="244" y="217" width="8" height="12" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="408" y="151" width="26" height="12" rx="2" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="408" y="217" width="26" height="12" rx="2" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+              <rect x="250" y="110" width="160" height="160" rx="6" fill="#2B2B2B" stroke="#6B6B66" stroke-width="1"/>
+              <circle cx="330" cy="190" r="48" fill="#4A4A4A" stroke="#5E5E5E" stroke-width="2"/>
+              <text x="238" y="300" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.button.outer">зовнішні</text>
+              <text x="238" y="316" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.button.outer_note">(до стінки)</text>
+              <text x="422" y="300" text-anchor="middle" style="fill:var(--text-primary);font-size:12px;font-weight:500" data-i18n="steps.button.inner">внутрішні</text>
+              <text x="422" y="316" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.button.inner_note">(до центру)</text>
+              <line x1="494" y1="306" x2="560" y2="306" stroke="var(--text-secondary)" stroke-width="1.5" marker-end="url(#button-arrow-dim)"/>
+              <text x="570" y="310" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.button.centre">центр корпусу</text>
+            </g>
+            <g data-only="2">
+              <line x1="330" y1="52" x2="330" y2="132" stroke="var(--text-primary)" stroke-width="1.5" marker-end="url(#button-arrow-main)"/>
+              <text x="340" y="66" style="fill:var(--text-primary);font-size:12px" data-i18n="steps.button.press">натисніть</text>
+              <path d="M434 157 L520 150" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+              <path d="M434 223 L520 206" fill="none" stroke="#6E6E6A" stroke-width="2.5"/>
+              <rect x="520" y="120" width="120" height="120" rx="10" fill="#E3B505"/>
+              <rect x="534" y="134" width="92" height="36" rx="4" fill="#CFE3CF"/>
+              <text x="580" y="158" text-anchor="middle" style="fill:#173404;font-size:14px;font-weight:500" data-i18n="steps.button.beep">пік</text>
+              <circle cx="580" cy="208" r="18" fill="#2B2B2B"/>
+            </g>
+            <g data-only="3">
+              <line x1="244" y1="143" x2="244" y2="171" stroke="#E24B4A" stroke-width="2" stroke-dasharray="3 2"/>
+              <line x1="244" y1="209" x2="244" y2="237" stroke="#E24B4A" stroke-width="2" stroke-dasharray="3 2"/>
+              <text x="236" y="132" text-anchor="end" style="fill:#E24B4A;font-size:12px;font-weight:500" data-i18n="steps.button.cut">різати тут</text>
+            </g>
+            <g data-s="4">
+              <circle cx="430" cy="157" r="5" fill="#A8ADB5"/>
+              <path d="M434 157 L500 157" fill="none" stroke="#E3B505" stroke-width="3"/>
+              <rect x="500" y="143" width="150" height="28" rx="6" fill="#0F6E56"/>
+              <text x="575" y="162" text-anchor="middle" style="fill:#fff;font-size:13px;font-weight:500" data-i18n="steps.common.d19_esp">D19 на ESP32</text>
+            </g>
+            <g data-s="5">
+              <circle cx="430" cy="223" r="5" fill="#A8ADB5"/>
+              <path d="M434 223 L500 223" fill="none" stroke="#6E6E6A" stroke-width="3"/>
+              <rect x="500" y="209" width="150" height="28" rx="6" fill="#0F6E56"/>
+              <text x="575" y="228" text-anchor="middle" style="fill:#fff;font-size:13px;font-weight:500" data-i18n="steps.common.gnd_esp">GND на ESP32</text>
+            </g>
+            <g data-s="6">
+              <line x1="446" y1="118" x2="446" y2="262" style="stroke:var(--text-secondary)" stroke-width="1.5" stroke-dasharray="6 4"/>
+              <text x="446" y="108" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.button.flange">край фланця динаміка: 1,15 мм</text>
+            </g>
+          </svg>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Кнопка 12 × 12, вигляд згори. З двох боків по дві ніжки, 5 мм одна від одної. Внутрішні ніжки з того боку, що в корпусі буде ближче до центру.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 6</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 id="h-devkit" data-i18n="solder.devkit.title">Дроти на DevKit (етап 4 збирання)</h3>
+      <figure class="stepper" data-stepper="devkit" data-steps="9" aria-labelledby="h-devkit" data-scroll-hint="Малюнок гортається вбік →" data-i18n-attr="data-scroll-hint:steps.scroll_hint">
+        <div class="stepper-frame">
+          <svg role="img" aria-label="Покрокові дроти на DevKit на етапі 4 збирання: паяти до кінчиків штирів, ще до лотка знайти потрібні штирі за написами й позначити їх маркером на гребінці з протилежного боку плати, плата в лотку штирями вгору, дроти підсилювача, мікрофона, кільця й кнопки, прозвонка VIN–GND і 3V3–GND." data-i18n-attr="aria-label:steps.devkit.alt" width="100%" viewBox="0 0 680 480" style="font-family:var(--font-sans)">
+            <g data-only="1">
+      <rect x="120" y="130" width="440" height="44" rx="6" fill="#778899" stroke="#8C9098" stroke-width="1"/>
+      <text x="340" y="157" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.t_speaker">дно динаміка</text>
+      <path d="M150 174 V214 M143 174 H157 M143 214 H157" fill="none" style="stroke:var(--text-secondary)" stroke-width="1.5"/>
+      <text x="164" y="198" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_gap">лише 5 мм</text>
+      <rect x="262" y="314" width="156" height="22" rx="2" fill="#111111" stroke="#6B6B66" stroke-width="1"/>
+      <rect x="200" y="336" width="280" height="14" fill="#2B2F36" stroke="#8C9098" stroke-width="1"/>
+      <rect x="130" y="350" width="420" height="20" rx="3" fill="#4A4F57" stroke="#8C9098" stroke-width="1"/>
+      <rect x="287" y="214" width="6" height="100" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+      <rect x="337" y="214" width="6" height="100" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+      <rect x="387" y="214" width="6" height="100" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+      <path d="M290 220 H196" fill="none" stroke="#E3B505" stroke-width="3" stroke-linecap="round"/>
+      <path d="M390 220 H504" fill="none" stroke="#6E6E6A" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="290" cy="220" r="7" fill="#E7E9EC" stroke="#8C9098" stroke-width="1"/><circle cx="390" cy="220" r="7" fill="#E7E9EC" stroke="#8C9098" stroke-width="1"/>
+      <path d="M340 216 V178" fill="none" stroke="#E24B4A" stroke-width="3" stroke-dasharray="4 3" stroke-linecap="round"/>
+      <text x="352" y="198" style="fill:#E24B4A;font-size:12px;font-weight:500" data-i18n="steps.devkit.t_wrong">не вгору: дріт упреться в динамік</text>
+      <text x="268" y="270" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_tip">пайка на кінчику штиря</text>
+      <path d="M272 264 L286 230" fill="none" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="412" y="270" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_wire">дріт одразу вбік</text>
+      <path d="M430 262 L448 226" fill="none" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="492" y="347" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_board">плата, написами вниз</text>
+      <text x="562" y="366" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_tray">лоток</text>
+      </g>
+      <g data-only="2">
+      <text x="112" y="20" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="steps.devkit.t_labels_up">написами догори</text>
+      <rect x="42" y="36" width="140" height="422" rx="8" fill="#2B2F36" stroke="#8C9098" stroke-width="1"/>
+      <rect x="62" y="44" width="100" height="26" rx="3" fill="none" stroke="#8C9098" stroke-width="1" stroke-dasharray="3 2"/>
+      <rect x="94" y="450" width="36" height="16" rx="3" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+      <text x="112" y="61" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="steps.devkit.t_antenna">антена</text>
+      <text x="112" y="150" text-anchor="middle" style="fill:#8C9098;font-size:12px" data-i18n="steps.devkit.board">ESP32 DevKit</text>
+      <text x="112" y="438" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="steps.devkit.t_usb">USB-C</text>
+      <circle cx="51" cy="84" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="84" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="108" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="108" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="132" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="132" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="156" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="156" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="180" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="180" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="204" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="204" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="228" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="228" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="252" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="252" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="276" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="276" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="300" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="300" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="324" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="324" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="348" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="348" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="372" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="372" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="396" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="396" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="420" r="3.5" fill="#C9CCD2"/><circle cx="173" cy="420" r="3.5" fill="#C9CCD2"/>
+      <circle cx="51" cy="204" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="51" cy="228" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="51" cy="252" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="51" cy="276" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="51" cy="300" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="51" cy="396" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="51" cy="420" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="173" cy="108" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="173" cy="204" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="173" cy="324" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="173" cy="396" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="173" cy="420" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <rect x="62" y="195" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="84" y="208" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D32">D32</text>
+      <rect x="62" y="219" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="84" y="232" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D33">D33</text>
+      <rect x="62" y="243" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="84" y="256" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D25">D25</text>
+      <rect x="62" y="267" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="84" y="280" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D26">D26</text>
+      <rect x="62" y="291" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="84" y="304" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D27">D27</text>
+      <rect x="62" y="387" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="84" y="400" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <rect x="62" y="411" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="84" y="424" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.VIN">VIN</text>
+      <rect x="118" y="99" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="140" y="112" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D22">D22</text>
+      <rect x="118" y="195" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="140" y="208" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D19">D19</text>
+      <rect x="118" y="315" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="140" y="328" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D4">D4</text>
+      <rect x="118" y="387" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="140" y="400" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <rect x="118" y="411" width="44" height="18" rx="4" fill="#0F6E56"/>
+      <text x="140" y="424" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.3V3">3V3</text>
+      <text x="328" y="20" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="steps.devkit.t_header_up">гребінкою догори</text>
+      <rect x="258" y="36" width="140" height="422" rx="8" fill="#2B2F36" stroke="#8C9098" stroke-width="1"/>
+      <rect x="278" y="424" width="100" height="26" rx="3" fill="none" stroke="#8C9098" stroke-width="1" stroke-dasharray="3 2"/>
+      <rect x="310" y="28" width="36" height="16" rx="3" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+      <text x="328" y="441" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="steps.devkit.t_antenna">антена</text>
+      <text x="328" y="62" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="steps.devkit.t_usb">USB-C</text>
+      <rect x="260" y="66" width="14" height="352" rx="2" fill="#111111" stroke="#6B6B66" stroke-width="1"/>
+      <rect x="382" y="66" width="14" height="352" rx="2" fill="#111111" stroke="#6B6B66" stroke-width="1"/>
+      <circle cx="267" cy="74" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="74" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="98" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="98" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="122" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="122" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="146" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="146" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="170" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="170" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="194" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="194" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="218" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="218" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="242" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="242" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="266" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="266" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="290" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="290" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="314" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="314" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="338" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="338" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="362" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="362" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="386" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="386" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="410" r="3.5" fill="#C9CCD2"/><circle cx="389" cy="410" r="3.5" fill="#C9CCD2"/>
+      <circle cx="267" cy="74" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="267" cy="98" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="267" cy="194" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="267" cy="218" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="267" cy="242" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="267" cy="266" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="267" cy="290" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="389" cy="74" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="389" cy="98" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="389" cy="170" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="389" cy="290" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="389" cy="386" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <text x="282" y="78" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.VIN">VIN</text>
+      <text x="282" y="102" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <text x="282" y="198" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D27">D27</text>
+      <text x="282" y="222" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D26">D26</text>
+      <text x="282" y="246" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D25">D25</text>
+      <text x="282" y="270" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D33">D33</text>
+      <text x="282" y="294" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D32">D32</text>
+      <text x="374" y="78" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.3V3">3V3</text>
+      <text x="374" y="102" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <text x="374" y="174" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D4">D4</text>
+      <text x="374" y="294" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D19">D19</text>
+      <text x="374" y="390" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D22">D22</text>
+      <path d="M200 30 H240" fill="none" style="stroke:var(--text-secondary)" stroke-width="2" stroke-linecap="round"/>
+      <path d="M233 25 L240 30 L233 35" fill="none" style="stroke:var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="220" y="20" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_flip">переверніть</text>
+      <circle cx="264" cy="472" r="6" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <text x="276" y="476" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_marker">позначка маркером</text>
+      </g>
+      <g data-s="3">
+      <rect x="260" y="36" width="160" height="422" rx="8" fill="#2B2F36" stroke="#8C9098" stroke-width="1"/>
+      <rect x="290" y="424" width="100" height="26" rx="3" fill="none" stroke="#8C9098" stroke-width="1" stroke-dasharray="3 2"/>
+      <rect x="322" y="28" width="36" height="16" rx="3" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+      <text x="340" y="441" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="steps.devkit.t_antenna_front">антена, спереду</text>
+      <text x="340" y="62" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="steps.devkit.t_usb_back">USB-C, ззаду</text>
+      <rect x="262" y="66" width="14" height="352" rx="2" fill="#111111" stroke="#6B6B66" stroke-width="1"/>
+      <rect x="404" y="66" width="14" height="352" rx="2" fill="#111111" stroke="#6B6B66" stroke-width="1"/>
+      <circle cx="269" cy="410" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="410" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="386" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="386" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="362" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="362" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="338" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="338" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="314" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="314" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="290" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="290" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="266" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="266" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="242" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="242" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="218" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="218" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="194" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="194" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="170" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="170" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="146" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="146" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="122" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="122" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="98" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="98" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="74" r="3.5" fill="#C9CCD2"/><circle cx="411" cy="74" r="3.5" fill="#C9CCD2"/>
+      <circle cx="269" cy="290" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="269" cy="266" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="269" cy="242" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="269" cy="218" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="269" cy="194" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="269" cy="98" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="269" cy="74" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="411" cy="386" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="411" cy="290" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="411" cy="170" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="411" cy="98" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <circle cx="411" cy="74" r="8" fill="none" stroke="#E24B4A" stroke-width="2.5"/>
+      <text x="284" y="294" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D32">D32</text>
+      <text x="284" y="270" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D33">D33</text>
+      <text x="284" y="246" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D25">D25</text>
+      <text x="284" y="222" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D26">D26</text>
+      <text x="284" y="198" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D27">D27</text>
+      <text x="284" y="102" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <text x="284" y="78" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.VIN">VIN</text>
+      <text x="396" y="390" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D22">D22</text>
+      <text x="396" y="294" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D19">D19</text>
+      <text x="396" y="174" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.D4">D4</text>
+      <text x="396" y="102" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <text x="396" y="78" text-anchor="end" style="fill:#F5B841;font-size:12px;font-weight:500" data-i18n="pins.3V3">3V3</text>
+      <text x="222" y="432" text-anchor="end" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="steps.devkit.t_side_tr">бік транзистора</text>
+      <text x="222" y="450" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_row_tr">ряд з D26, D27, VIN</text>
+      <text x="448" y="432" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="steps.devkit.t_side_amp">бік підсилювача</text>
+      <text x="448" y="450" style="fill:var(--text-secondary);font-size:12px" data-i18n="steps.devkit.t_row_amp">ряд з D22, D4, D19, 3V3</text>
+      </g>
+      <g data-hide="8">
+      <g data-s="4">
+      <path d="M411 386 H448" fill="none" stroke="#B8431F" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="448" y="376" width="192" height="20" rx="5" fill="#B8431F"/>
+      <text x="544" y="390" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_amp_din">підсилювач DIN · 3,5 см</text>
+      <path d="M269 218 H220" fill="none" stroke="#B8431F" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="208" width="192" height="20" rx="5" fill="#B8431F"/>
+      <text x="124" y="222" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_amp_bclk">підсилювач BCLK · 7 см</text>
+      <path d="M269 194 H220" fill="none" stroke="#B8431F" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="184" width="192" height="20" rx="5" fill="#B8431F"/>
+      <text x="124" y="198" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_amp_lrc">підсилювач LRC · 7 см</text>
+      <path d="M269 98 H220" fill="none" stroke="#B8431F" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="88" width="192" height="20" rx="5" fill="#B8431F"/>
+      <text x="124" y="102" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_amp_gnd">підсилювач GND · 7 см</text>
+      <path d="M269 74 H220" fill="none" stroke="#B8431F" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="64" width="192" height="20" rx="5" fill="#B8431F"/>
+      <text x="124" y="78" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_amp_vin">підсилювач VIN · 8 см</text>
+      </g>
+      <g data-s="5">
+      <path d="M411 74 H448" fill="none" stroke="#0F6E56" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="448" y="64" width="192" height="20" rx="5" fill="#0F6E56"/>
+      <text x="544" y="78" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_mic_vdd">мікрофон VDD · 11 см</text>
+      <path d="M411 98 H448" fill="none" stroke="#0F6E56" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="448" y="88" width="192" height="20" rx="5" fill="#0F6E56"/>
+      <text x="544" y="102" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_mic_gnd">мікрофон GND · 11,5 см</text>
+      <path d="M269 266 H220" fill="none" stroke="#0F6E56" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="256" width="192" height="20" rx="5" fill="#0F6E56"/>
+      <text x="124" y="270" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_mic_sd">мікрофон SD · 6,5 см</text>
+      <path d="M269 242 H220" fill="none" stroke="#0F6E56" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="232" width="192" height="20" rx="5" fill="#0F6E56"/>
+      <text x="124" y="246" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_mic_ws">мікрофон WS · 8 см</text>
+      <path d="M269 290 H220" fill="none" stroke="#0F6E56" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="280" width="192" height="20" rx="5" fill="#0F6E56"/>
+      <text x="124" y="294" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_mic_sck">мікрофон SCK · 6 см</text>
+      </g>
+      <g data-s="6">
+      <path d="M411 170 H448" fill="none" stroke="#6A5FC1" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="448" y="160" width="192" height="20" rx="5" fill="#6A5FC1"/>
+      <text x="544" y="174" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_ring_g">кільце G (47 Ом) · 7 см</text>
+      <path d="M269 98 L250 98 L234 124 L220 124" fill="none" stroke="#6A5FC1" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="114" width="192" height="20" rx="5" fill="#6A5FC1"/>
+      <text x="124" y="128" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_ring_s">кільце S · 8 см</text>
+      <path d="M269 74 L250 74 L234 46 L220 46" fill="none" stroke="#6A5FC1" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="28" y="36" width="192" height="20" rx="5" fill="#6A5FC1"/>
+      <text x="124" y="50" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_ring_plus">кільце «+» ×2 · ≈9 см</text>
+      </g>
+      <g data-s="7">
+      <path d="M411 290 H448" fill="none" stroke="#8F6A00" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="448" y="280" width="192" height="20" rx="5" fill="#8F6A00"/>
+      <text x="544" y="294" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_btn_d19">кнопка, ніжка 1 · 8 см</text>
+      <path d="M411 98 L430 98 L446 124 L448 124" fill="none" stroke="#8F6A00" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="448" y="114" width="192" height="20" rx="5" fill="#8F6A00"/>
+      <text x="544" y="128" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="steps.devkit.w_btn_gnd">кнопка, ніжка 2 · 8 см</text>
+      </g>
+      </g>
+      <g data-only="8">
+      <path d="M70 150 L269 74" fill="none" stroke="#E24B4A" stroke-width="3" stroke-linecap="round"/>
+      <path d="M110 150 L269 98" fill="none" stroke="#6E6E6A" stroke-width="3" stroke-linecap="round"/>
+      <rect x="40" y="150" width="120" height="120" rx="10" fill="#E3B505"/>
+      <rect x="54" y="164" width="92" height="36" rx="4" fill="#CFE3CF"/>
+      <text x="100" y="187" text-anchor="middle" style="fill:#173404;font-size:12px;font-weight:500" data-i18n="steps.devkit.silence">тиша</text>
+      <circle cx="100" cy="236" r="18" fill="#2B2B2B" stroke="#6B6B66" stroke-width="1"/>
+      <text x="40" y="310" style="fill:var(--text-secondary);font-size:11px" data-i18n="steps.devkit.beep_ok">короткий пік на початку — теж норма</text>
+      <circle cx="269" cy="74" r="5" fill="#E24B4A" stroke="#FFFFFF" stroke-width="1"/>
+      <circle cx="269" cy="98" r="5" fill="#9A9EA6" stroke="#FFFFFF" stroke-width="1"/>
+      </g>
+      <g data-only="9">
+      <path d="M550 150 L411 74" fill="none" stroke="#E24B4A" stroke-width="3" stroke-linecap="round"/>
+      <path d="M590 150 L411 98" fill="none" stroke="#6E6E6A" stroke-width="3" stroke-linecap="round"/>
+      <rect x="520" y="150" width="120" height="120" rx="10" fill="#E3B505"/>
+      <rect x="534" y="164" width="92" height="36" rx="4" fill="#CFE3CF"/>
+      <text x="580" y="187" text-anchor="middle" style="fill:#173404;font-size:12px;font-weight:500" data-i18n="steps.devkit.silence">тиша</text>
+      <circle cx="580" cy="236" r="18" fill="#2B2B2B" stroke="#6B6B66" stroke-width="1"/>
+      <circle cx="411" cy="74" r="5" fill="#E24B4A" stroke="#FFFFFF" stroke-width="1"/>
+      <circle cx="411" cy="98" r="5" fill="#9A9EA6" stroke="#FFFFFF" stroke-width="1"/>
+      </g>
+          </svg>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Ці дроти паяють на етапі 4 збирання, коли DevKit і підсилювач уже в лотку: паяйте до кінчика штиря й відразу відводьте дріт убік, бо над кінчиками до дна динаміка лише 5 мм. Пайку тримайте маленькою.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 9</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 data-i18n="solder.pinmap.title">Карта штирів DevKit</h3>
+      <figure class="pinmap" data-pinmap data-scroll-hint="Малюнок гортається вбік →" data-i18n-attr="data-scroll-hint:steps.scroll_hint">
+        <div class="stepper-frame">
+          <svg role="img" aria-label="Карта штирів ESP32 DevKit V1, вигляд з боку написів (деталей), антена вгорі: зайняті штирі виділено й підписано, куди йде кожен дріт." data-i18n-attr="aria-label:solder.pinmap.alt" width="100%" viewBox="0 0 680 504" style="font-family:var(--font-sans)">
+            <rect x="260" y="36" width="160" height="422" rx="8" fill="#2B2F36" stroke="#8C9098" stroke-width="1"/>
+      <rect x="300" y="44" width="80" height="22" rx="3" fill="none" stroke="#8C9098" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="340" y="59" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="pinmap.antenna">антена</text>
+      <text x="340" y="24" text-anchor="middle" style="fill:var(--text-primary);font-size:13px;font-weight:500" data-i18n="pinmap.board">ESP32 DevKit</text>
+      <rect x="322" y="450" width="36" height="16" rx="3" fill="#C9CCD2" stroke="#8C9098" stroke-width="1"/>
+      <text x="340" y="444" text-anchor="middle" style="fill:#C9CCD2;font-size:11px" data-i18n="pinmap.usb">USB-C</text>
+      <text x="276" y="88" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.EN">EN</text>
+      <text x="276" y="112" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.VP">VP</text>
+      <text x="276" y="136" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.VN">VN</text>
+      <text x="276" y="160" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D34">D34</text>
+      <text x="276" y="184" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D35">D35</text>
+      <rect x="268" y="195" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="293" y="208" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D32">D32</text>
+      <line x1="266" y1="204" x2="248" y2="204" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="244" y="208" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.mic_sck">мікрофон SCK</text>
+      <rect x="268" y="219" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="293" y="232" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D33">D33</text>
+      <line x1="266" y1="228" x2="248" y2="228" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="244" y="232" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.mic_sd">мікрофон SD</text>
+      <rect x="268" y="243" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="293" y="256" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D25">D25</text>
+      <line x1="266" y1="252" x2="248" y2="252" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="244" y="256" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.mic_ws">мікрофон WS</text>
+      <rect x="268" y="267" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="293" y="280" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D26">D26</text>
+      <line x1="266" y1="276" x2="248" y2="276" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="244" y="280" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.amp_bclk">підсилювач BCLK</text>
+      <rect x="268" y="291" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="293" y="304" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D27">D27</text>
+      <line x1="266" y1="300" x2="248" y2="300" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="244" y="304" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.amp_lrc">підсилювач LRC</text>
+      <text x="276" y="328" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D14">D14</text>
+      <text x="276" y="352" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D12">D12</text>
+      <text x="276" y="376" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D13">D13</text>
+      <rect x="268" y="387" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="293" y="400" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <line x1="266" y1="396" x2="248" y2="396" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="244" y="400" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.amp_gnd">підсилювач GND</text>
+      <rect x="268" y="411" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="293" y="424" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.VIN">VIN</text>
+      <line x1="266" y1="420" x2="248" y2="420" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="244" y="424" text-anchor="end" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.vin">підсилювач VIN, кільце «+» ×2</text>
+      <text x="404" y="88" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D23">D23</text>
+      <rect x="362" y="99" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="387" y="112" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D22">D22</text>
+      <line x1="414" y1="108" x2="432" y2="108" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="436" y="112" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.amp_din">підсилювач DIN</text>
+      <text x="404" y="136" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.TX0">TX0</text>
+      <text x="404" y="160" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.RX0">RX0</text>
+      <text x="404" y="184" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D21">D21</text>
+      <rect x="362" y="195" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="387" y="208" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D19">D19</text>
+      <line x1="414" y1="204" x2="432" y2="204" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="436" y="208" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.button">кнопка</text>
+      <text x="404" y="232" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D18">D18</text>
+      <text x="404" y="256" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D5">D5</text>
+      <text x="404" y="280" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.TX2">TX2</text>
+      <text x="404" y="304" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.RX2">RX2</text>
+      <rect x="362" y="315" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="387" y="328" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.D4">D4</text>
+      <line x1="414" y1="324" x2="432" y2="324" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="436" y="328" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.ring_g">кільце G, через 47 Ом</text>
+      <text x="404" y="352" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D2">D2</text>
+      <text x="404" y="376" text-anchor="end" style="fill:#A9ADB4;font-size:12px" data-i18n="pins.D15">D15</text>
+      <rect x="362" y="387" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="387" y="400" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.GND">GND</text>
+      <line x1="414" y1="396" x2="432" y2="396" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="436" y="400" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.mic_gnd">мікрофон GND</text>
+      <rect x="362" y="411" width="50" height="18" rx="4" fill="#0F6E56"/>
+      <text x="387" y="424" text-anchor="middle" style="fill:#FFFFFF;font-size:12px;font-weight:500" data-i18n="pins.3V3">3V3</text>
+      <line x1="414" y1="420" x2="432" y2="420" style="stroke:var(--text-secondary)" stroke-width="1"/>
+      <text x="436" y="424" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.mic_vdd">мікрофон VDD</text>
+      <text x="340" y="492" text-anchor="middle" style="fill:var(--text-secondary);font-size:12px" data-i18n="pinmap.gnd_any">S кільця й GND кнопки: на будь-який GND</text>
+      <text x="250" y="24" text-anchor="end" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="pinmap.row_tr">бік транзистора в лотку</text>
+      <text x="430" y="24" style="fill:var(--text-secondary);font-size:12px;font-weight:500" data-i18n="pinmap.row_amp">бік підсилювача в лотку</text>
+          </svg>
+        </div>
+        <figcaption data-i18n="solder.pinmap.caption">Вигляд з боку написів (деталей), антена вгорі. У лотку плата лежить навпаки, штирями вгору, тож написів там не видно: ряд з D22, D4, D19 і 3V3 лежить з боку підсилювача, ряд з D26, D27 і VIN з боку транзистора. Два штирі GND приймають чотири дроти, на VIN сходяться три.</figcaption>
+      </figure>
+      <h3 data-i18n="solder.wires.title">Довжини дротів</h3>
+      <div class="table-wrap">
+        <table>
+          <caption data-i18n="wires.caption">Усі довжини рекомендовані й узяті із запасом. Позначка «≈» — орієнтовна довжина.</caption>
+          <thead>
+            <tr>
+              <th scope="col" data-i18n="wires.col.from">Звідки</th>
+              <th scope="col" data-i18n="wires.col.to">Куди</th>
+              <th scope="col" data-i18n="wires.col.len">Довжина</th>
+            </tr>
+          </thead>
+          <tbody data-wires></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="assembly" class="block">
+    <h2 data-i18n="assembly.title">Збирання</h2>
+    <div class="section-body">
+      <p data-i18n="assembly.intro">Усе вже надруковане, а мікрофон, підсилювач, джгут транзистора з нитками кільця й кнопка спаяні з дротами за розділом «Пайка»; дроти на DevKit паяють на етапі 4. Малюнки — знімки 3D-моделі корпусу: деталь, яку ставлять на цьому кроці, виділено помаранчевим, решта сіра, а нитки жовті; лише на кроках, де нитка сама є новою деталлю, вона помаранчева. Деякі деталі для наочності підняті над своїм місцем. Збирання йде чотирма етапами: тіло, верх, верх на тіло й лоток.</p>
+      <h3 id="h-asm-body" data-i18n="assembly.body.title">Тіло</h3>
+      <p class="stage-label" data-i18n="assembly.stage_1">Етап 1 з 4</p>
+      <figure class="stepper" data-stepper="asm_body" data-steps="9" aria-labelledby="h-asm-body">
+        <div class="stepper-frame">
+          <div class="stepper-stack">
+            <img data-s="1" src="assets/renders/assembly-01.png" width="1000" height="750" loading="lazy" decoding="async" alt="Тіло корпусу, перевернуте відкритим низом догори: над трьома бобишками зависли помаранчеві вставки." data-i18n-attr="alt:steps.asm_body.alt_1">
+            <img data-s="2" src="assets/renders/assembly-02.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Тіло корпусу зверху: над двома стійками біля краю зависли помаранчеві вставки." data-i18n-attr="alt:steps.asm_body.alt_2">
+            <img data-s="3" src="assets/renders/assembly-03.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Тіло корпусу зсередини: помаранчева плата мікрофона відсунена від ложа на передній стінці." data-i18n-attr="alt:steps.asm_body.alt_3">
+            <img data-s="4" src="assets/renders/assembly-04.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Плата мікрофона в ложі, навколо її краю помаранчева смужка термоклею." data-i18n-attr="alt:steps.asm_body.alt_4">
+            <img data-s="5" src="assets/renders/assembly-05.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Дуга лежить пазом догори, над нею зависла помаранчева нитка, що виступає за кінець дуги." data-i18n-attr="alt:steps.asm_body.alt_5">
+            <img data-s="6" src="assets/renders/assembly-06.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Дві помаранчеві дуги з жовтими нитками підняті над обідком тіла, жовті хвости ниток звисають до каналів." data-i18n-attr="alt:steps.asm_body.alt_6">
+            <img data-s="7" src="assets/renders/assembly-07.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчеві хвости ниток лежать у двох каналах стінки під передньою перемичкою, над мікрофоном." data-i18n-attr="alt:steps.asm_body.alt_7">
+            <img data-s="8" src="assets/renders/assembly-08.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Від контактів двох ниток у каналах під передньою перемичкою помаранчеві дроти відходять до центру й ідуть униз у корпус повз мікрофон." data-i18n-attr="alt:steps.asm_body.alt_8">
+            <img data-s="9" src="assets/renders/assembly-09.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчева крапля термоклею накриває дроти й контакти ниток у каналах стінки." data-i18n-attr="alt:steps.asm_body.alt_9">
+          </div>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Переверніть тіло відкритим низом догори й вплавте по вставці в кожну з трьох бобишок: нагрійте латунну вставку M2.5 паяльником з насадкою, поставте рівно над отвором і повільно вдавіть до рівня краю.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 9</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 id="h-asm-top" data-i18n="assembly.top.title">Верх</h3>
+      <p class="stage-label" data-i18n="assembly.stage_2">Етап 2 з 4</p>
+      <figure class="stepper" data-stepper="asm_top" data-steps="10" aria-labelledby="h-asm-top">
+        <div class="stepper-frame">
+          <div class="stepper-stack">
+            <img data-s="1" src="assets/renders/assembly-10.png" width="1000" height="750" loading="lazy" decoding="async" alt="Верх лежить лицем донизу, над чотирма бобишками зависли помаранчеві вставки." data-i18n-attr="alt:steps.asm_top.alt_1">
+            <img data-s="2" src="assets/renders/assembly-11.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Верх лицем донизу, над отвором кнопки завис помаранчевий ковпачок." data-i18n-attr="alt:steps.asm_top.alt_2">
+            <img data-s="3" src="assets/renders/assembly-12.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчевий перемикач кнопки стоїть у тримачі верху, ніжки з припаяними дротами дивляться вгору." data-i18n-attr="alt:steps.asm_top.alt_3">
+            <img data-s="4" src="assets/renders/assembly-13.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Дві помаранчеві краплі клею по боках перемикача в тримачі верху." data-i18n-attr="alt:steps.asm_top.alt_4">
+            <img data-s="5" src="assets/renders/assembly-14.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Верх лицем донизу, над гніздом динаміка завис помаранчевий контур TPU-прокладки." data-i18n-attr="alt:steps.asm_top.alt_5">
+            <img data-s="6" src="assets/renders/assembly-15.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчевий динамік завис над прокладкою в гнізді верху, магнітом догори." data-i18n-attr="alt:steps.asm_top.alt_6">
+            <img data-s="7" src="assets/renders/assembly-16.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Динамік на місці, над кутовими отворами його фланця зависли помаранчеві металеві шайби." data-i18n-attr="alt:steps.asm_top.alt_7">
+            <img data-s="8" src="assets/renders/assembly-17.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Над чотирма шайбами зависли помаранчеві гвинти." data-i18n-attr="alt:steps.asm_top.alt_8">
+            <img data-s="9" src="assets/renders/assembly-18.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Два помаранчеві дроти відходять від клем динаміка." data-i18n-attr="alt:steps.asm_top.alt_9">
+            <img data-s="10" src="assets/renders/assembly-19.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчевий валик клею йде по всьому периметру фланця динаміка." data-i18n-attr="alt:steps.asm_top.alt_10">
+          </div>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Покладіть верх лицем донизу й вплавте чотири вставки в бобишки під гвинти динаміка, до рівня краю бобишки.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 10</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 id="h-asm-join" data-i18n="assembly.join.title">Верх на тіло</h3>
+      <p class="stage-label" data-i18n="assembly.stage_3">Етап 3 з 4</p>
+      <figure class="stepper" data-stepper="asm_join" data-steps="3" aria-labelledby="h-asm-join">
+        <div class="stepper-frame">
+          <div class="stepper-stack">
+            <img data-s="1" src="assets/renders/assembly-20.png" width="1000" height="750" loading="lazy" decoding="async" alt="Помаранчевий верх з динаміком завис над тілом з дугами." data-i18n-attr="alt:steps.asm_join.alt_1">
+            <img data-s="2" src="assets/renders/assembly-21.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Над зібраним корпусом, біля краю верху, зависли два помаранчеві гвинти." data-i18n-attr="alt:steps.asm_join.alt_2">
+            <img data-s="3" src="assets/renders/assembly-22.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Над головками гвинтів зависли дві помаранчеві TPU-заглушки." data-i18n-attr="alt:steps.asm_join.alt_3">
+          </div>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Покладіть верх на дуги кнопкою на боці мікрофона, праворуч від нього, а дроти динаміка й кнопки пропустіть у корпус, щоб їх не защемило. Верх сідає й повернутим на 180°, тож звіртеся перед гвинтами.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 3</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+      <h3 id="h-asm-tray" data-i18n="assembly.tray.title">Лоток</h3>
+      <p class="stage-label" data-i18n="assembly.stage_4">Етап 4 з 4</p>
+      <figure class="stepper" data-stepper="asm_tray" data-steps="11" aria-labelledby="h-asm-tray">
+        <div class="stepper-frame">
+          <div class="stepper-stack">
+            <img data-s="1" src="assets/renders/assembly-23.png" width="1000" height="750" loading="lazy" decoding="async" alt="Лоток дном догори, над нішами зависли чотири помаранчеві TPU-ніжки." data-i18n-attr="alt:steps.asm_tray.alt_1">
+            <img data-s="2" src="assets/renders/assembly-24.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Лоток зверху, над двома стійками біля антенного кінця зависли помаранчеві вставки." data-i18n-attr="alt:steps.asm_tray.alt_2">
+            <img data-s="3" src="assets/renders/assembly-25.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчевий DevKit завис над ложем у лотку штирями вгору, USB-C до заднього краю." data-i18n-attr="alt:steps.asm_tray.alt_3">
+            <img data-s="4" src="assets/renders/assembly-26.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Над двома отворами DevKit біля антени зависли помаранчеві гвинти." data-i18n-attr="alt:steps.asm_tray.alt_4">
+            <img data-s="5" src="assets/renders/assembly-27.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчевий підсилювач із напаяним конденсатором завис над своїми фіксаторами праворуч у лотку." data-i18n-attr="alt:steps.asm_tray.alt_5">
+            <img data-s="6" src="assets/renders/assembly-28.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчевий транзистор лежить на краплі клею на дні лотка ліворуч від DevKit, уздовж нього." data-i18n-attr="alt:steps.asm_tray.alt_6">
+            <img data-s="7" src="assets/renders/assembly-29.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Помаранчевий конденсатор лежить набік на ніжках, що йдуть до штирів підсилювача." data-i18n-attr="alt:steps.asm_tray.alt_7">
+            <img data-s="8" src="assets/renders/assembly-30.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Лоток з платами: помаранчеві дроти відходять убік від кінчиків штирів DevKit." data-i18n-attr="alt:steps.asm_tray.alt_8">
+            <img data-s="9" src="assets/renders/assembly-31.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Лоток з платами: помаранчеві дроти динаміка йдуть від клемника підсилювача, а сірі дроти відходять убік від штирів DevKit." data-i18n-attr="alt:steps.asm_tray.alt_9">
+            <img data-s="10" src="assets/renders/assembly-32.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Лоток з платами крупним планом: помаранчевим виділено кінчики штирів VIN, GND і 3V3 на DevKit." data-i18n-attr="alt:steps.asm_tray.alt_10">
+            <img data-s="11" src="assets/renders/assembly-33.png" width="1000" height="750" loading="lazy" decoding="async" aria-hidden="true" alt="Тіло з верхом, під ним лоток з помаранчевою прокладкою на фланці, а ще нижче три помаранчеві гвинти." data-i18n-attr="alt:steps.asm_tray.alt_11">
+          </div>
+        </div>
+        <div class="stepper-caption-box">
+          <div class="stepper-caption" data-stepper-caption aria-live="off">Покладіть лоток дном догори й вклейте в чотири ніші чотири TPU-ніжки: ніжка ковзає в нішу з боку краю, плаский кінець у нішу, скошений до столу. Підійде суперклей або двосторонній скотч.</div>
+          <div class="stepper-caption-sizer" data-stepper-sizer aria-hidden="true"></div>
+        </div>
+        <div class="stepper-controls">
+          <button type="button" data-stepper-prev disabled>Назад</button>
+          <button type="button" data-stepper-next>Далі</button>
+          <span class="stepper-count" data-stepper-count>Крок 1 з 11</span>
+          <span class="stepper-dots" data-stepper-dots aria-hidden="true"><span class="dot" data-on="true"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span><span class="dot" data-on="false"></span></span>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section id="firmware" class="block">
+    <h2 data-i18n="firmware.title">Прошивка</h2>
+    <div class="section-body">
+      <p data-i18n="firmware.intro">Кнопка нижче записує прошивку в колонку прямо з браузера через кабель USB, а в тому ж вікні ви передаєте колонці назву й пароль своєї мережі Wi-Fi.</p>
+      <div class="fw-install">
+        <esp-web-install-button manifest="firmware/manifest.json">
+          <button type="button" class="fw-button" slot="activate" data-i18n="firmware.button">Встановити прошивку</button>
+          <p class="fw-note" slot="unsupported" data-i18n="firmware.unsupported">Цей браузер не вміє працювати з USB-портами, тож встановити прошивку з нього не вийде. Відкрийте цю сторінку в Chrome або Edge на комп'ютері.</p>
+          <p class="fw-note" slot="not-allowed" data-i18n="firmware.not_allowed">Браузер дозволяє встановлювати прошивку лише зі сторінки, адреса якої починається з https://, або з localhost. Відкрийте цю сторінку за такою адресою.</p>
+        </esp-web-install-button>
+        <p class="fw-note fw-missing" data-i18n="firmware.load_failed">Не вдалося завантажити кнопку встановлення: вона приходить із сайту unpkg.com. Перевірте, чи є з'єднання з інтернетом і чи не блокує цей сайт розширення браузера, а потім оновіть сторінку.</p>
+      </div>
+      <h3 data-i18n="firmware.need.title">Що потрібно</h3>
+      <ul class="marks">
+        <li data-i18n="firmware.need.browser">Комп'ютер (Windows, macOS чи Linux) із браузером Chrome або Edge.</li>
+        <li data-i18n="firmware.need.cable">Кабель USB-C, що передає дані: кабель лише для заряджання не підійде.</li>
+        <li data-i18n="firmware.need.wifi">Мережа Wi-Fi на 2,4 ГГц: мереж на 5 ГГц плата не бачить.</li>
+        <li>
+          <span data-i18n="firmware.need.driver">На Windows, можливо, знадобиться драйвер для USB-чипа плати DevKit: CH340 або CP210x, залежно від плати. Якщо не знаєте, який чип на вашій, встановіть обидва.</span>
+          <span class="fw-links">
+            <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html" target="_blank" rel="noopener noreferrer" data-i18n="firmware.need.ch340">Драйвер CH340 (сайт WCH)</a>
+            <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers" target="_blank" rel="noopener noreferrer" data-i18n="firmware.need.cp210x">Драйвер CP210x (сайт Silicon Labs)</a>
+          </span>
+        </li>
+      </ul>
+      <h3 data-i18n="firmware.steps.title">Як встановити</h3>
+      <ol class="steps">
+        <li data-i18n="firmware.step1">Під'єднайте колонку до комп'ютера кабелем USB-C: роз'єм ззаду корпусу. Колонка живиться від цього ж кабелю, окремий блок живлення не потрібен.</li>
+        <li data-i18n="firmware.step2">Натисніть «Встановити прошивку». Браузер покаже список портів: виберіть той, що з'явився після під'єднання колонки, і підтвердіть вибір.</li>
+        <li data-i18n="firmware.step3">Відкриється англомовне вікно встановлення. Натисніть у ньому «Install Pytaichenko.Speaker», поставте галочку «Erase device», щоб стерти з плати старі дані, і натисніть «Next», а потім «Install».</li>
+        <li data-i18n="firmware.step4">Дочекайтеся кінця запису: це триває близько двох хвилин. Тим часом не закривайте сторінку й не перемикайтеся на іншу вкладку. Коли з'явиться «Installation complete!», натисніть «Next».</li>
+        <li data-i18n="firmware.step5">У вікні «Configure Wi-Fi» виберіть свою мережу в списку «Network», впишіть пароль у поле «Password» і натисніть «Connect». Якщо мережі немає в списку, виберіть «Join other…» і впишіть її назву. Коли з'явиться «Device connected to the network!», натисніть «Continue» і закрийте вікно. Якщо замість цього вікна відкрилося меню, виберіть у ньому «Connect to Wi-Fi». Якщо такого пункту в меню немає, закрийте вікно, натисніть «Встановити прошивку» ще раз і виберіть порт: тепер він з'явиться.</li>
+      </ol>
+      <h3 data-i18n="firmware.next.title">Що далі</h3>
+      <p data-i18n="firmware.next.ring">Поки колонка не з'єднана із сервером, кільце повільно «дихає»: розгоряється й гасне раз на 4 с. Так і має бути: колонка працює й чекає на сервер.</p>
+      <p data-i18n="firmware.next.server">З'єднайте колонку із сервером одразу після прошивки, як описано в розділі «Сервер»: доти колонка не має власного ключа шифрування, і під'єднатися до неї може будь-який пристрій у вашій мережі.</p>
+      <p data-i18n="firmware.next.window">Перше з'єднання із сервером колонка приймає протягом доби після ввімкнення. Якщо доба минула, а колонку ще не з'єднано, від'єднайте її від живлення й під'єднайте знову. Уже з'єднана колонка, яка цілу добу після ввімкнення не могла під'єднатися до Wi-Fi, перезапускається сама.</p>
+      <h3 data-i18n="firmware.update.title">Оновлення прошивки</h3>
+      <p data-i18n="firmware.update.text">Нову версію ставлять тією ж кнопкою «Встановити прошивку»: під'єднайте колонку кабелем, натисніть кнопку й виберіть порт. У вікні натисніть «Update Pytaichenko.Speaker», а потім «Install». Коли з'явиться «Installation complete!», натисніть «Next» і закрийте вікно. Колонка збереже ключ сервера, мережу Wi-Fi, вибрану фразу й гучність.</p>
+      <p data-i18n="firmware.update.erase">Якщо замість «Update Pytaichenko.Speaker» у вікні є лише «Install Pytaichenko.Speaker» і далі воно питає про «Erase device», галочку не ставте: стирання видаляє ключ сервера, Wi-Fi і фразу. Якщо немає жодного з цих пунктів, на колонці вже ця версія й оновлювати нічого не треба: просто закрийте вікно. Червоний пункт «Erase User Data» тоді не натискайте, якщо не хочете з'єднувати колонку із сервером заново: він стирає ключ, Wi-Fi і фразу, а наступне вікно має лише кнопку підтвердження.</p>
+      <h3 data-i18n="firmware.trouble.title">Якщо не вийшло</h3>
+      <dl class="trouble">
+        <div class="trouble-item">
+          <dt data-i18n="firmware.trouble.port.symptom">Колонки немає в списку портів</dt>
+          <dd>
+            <span data-i18n="firmware.trouble.port.fix">Спробуйте інший кабель: чимало кабелів USB-C лише заряджають і не передають даних. На Windows встановіть драйвер CH340 або CP210x з посилань вище, а потім від'єднайте й знову під'єднайте колонку. На Linux, якщо порт у списку є, але не відкривається, додайте свого користувача до групи dialout командою нижче, а потім вийдіть із системи й увійдіть знову.</span>
+            <pre class="cmd" tabindex="0"><code>sudo usermod -aG dialout $USER</code></pre>
+          </dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="firmware.trouble.boot.symptom">Встановлення зависає на «Preparing installation» або пише «Failed to initialize»</dt>
+          <dd data-i18n="firmware.trouble.boot.fix">Деякі плати DevKit не переходять у режим запису самі, і тоді допомагає кнопка BOOT біля роз'єму USB-C на платі. Від'єднайте кабель, відкрутіть три гвинти лотка й вийміть лоток із корпусу, не від'єднуючи дротів. DevKit лежить у лотку деталями донизу, тож кнопка BOOT на нижньому боці плати: відкрутіть два гвинти біля антени й обережно підніміть плату із защіпок. Під'єднайте кабель просто до DevKit, тримайте кнопку BOOT натиснутою, коли натискаєте «Install», і відпустіть її, коли з'явиться відсоток запису. Потім поверніть плату й лоток на місце.</dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="firmware.trouble.wifi.symptom">Треба змінити мережу Wi-Fi або пароль</dt>
+          <dd data-i18n="firmware.trouble.wifi.fix">Прошивку вдруге записувати не треба. Під'єднайте колонку кабелем, натисніть «Встановити прошивку», виберіть порт, а у вікні виберіть «Change Wi-Fi» (або «Connect to Wi-Fi», якщо колонка зараз не в мережі).</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="server" class="block">
+    <h2 data-i18n="server.title">Сервер</h2>
+    <div class="section-body">
+      <p data-i18n="server.intro">Сервер — це служба розмови на комп'ютері у вашій домашній мережі: колонка надсилає їй ваше питання, а служба розмовляє з OpenAI й повертає колонці відповідь голосом.</p>
+      <h3 data-i18n="server.need.title">Що потрібно</h3>
+      <ul class="marks">
+        <li data-i18n="server.need.computer">Комп'ютер на Linux, що працює постійно, у тій самій мережі, що й колонки: міні-ПК, Raspberry Pi 4 чи 5 із 64-бітною системою або NAS, який уміє запускати Docker.</li>
+        <li data-i18n="server.need.docker">Docker із Docker Compose і git на цьому комп'ютері.</li>
+        <li>
+          <span data-i18n="server.need.key">Ключ API OpenAI. Розмови оплачуються окремо, за тарифами OpenAI.</span>
+          <span class="fw-links">
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" data-i18n="server.need.key_link">Ключі API на сайті OpenAI</a>
+          </span>
+        </li>
+      </ul>
+      <h3 data-i18n="server.run.title">Як запустити</h3>
+      <p data-i18n="server.run.text">На сервері відкрийте термінал і виконайте три команди: перша завантажує проєкт, друга переходить у його папку, третя збирає й запускає службу.</p>
+      <pre class="cmd" tabindex="0"><code>git clone <span data-repo-url>https://github.com/feroxes/pytaichenko</span>
+cd <span data-repo-dir>pytaichenko</span>
+docker compose up -d</code></pre>
+      <p data-i18n="server.run.perm">Якщо Docker відповідає «permission denied», вашого користувача ще немає в групі docker: додайте його командою нижче, вийдіть із системи, увійдіть знову й повторіть три команди. Або виконайте ці команди з sudo.</p>
+      <pre class="cmd" tabindex="0"><code>sudo usermod -aG docker $USER</code></pre>
+      <p data-i18n="server.run.after">Перший запуск триває кілька хвилин, поки Docker збирає службу. Далі вона запускається сама разом із комп'ютером, а все, що ви налаштуєте, зберігається в папці data всередині папки проєкту.</p>
+      <h3 data-i18n="server.setup.title">Як налаштувати</h3>
+      <ol class="steps">
+        <li>
+          <span data-i18n="server.setup.open">На будь-якому пристрої у вашій мережі відкрийте в браузері сторінку налаштувань за адресою нижче. Адресу сервера видно в налаштуваннях роутера, у списку пристроїв.</span>
+          <pre class="cmd" tabindex="0"><code>http://&lt;<span data-i18n="server.setup.address">адреса сервера</span>&gt;:8080</code></pre>
+        </li>
+        <li data-i18n="server.setup.password">Сторінка попросить створити пароль: придумайте його, впишіть двічі й натисніть «Створити пароль». Далі налаштування відкриваються лише з цим паролем.</li>
+        <li data-i18n="server.setup.key">У розділі «Розмова» вставте ключ у поле «Ключ OpenAI» і натисніть «Зберегти». Ключ зберігається лише на сервері, і сторінка його назад не показує.</li>
+        <li data-i18n="server.setup.adopt">Одразу після прошивки відкрийте розділ «Колонки»: увімкнена колонка приблизно за хвилину з'явиться в списку «Знайдено в мережі». Натисніть «Забрати»: сервер видасть колонці її власний ключ шифрування й під'єднається до неї. Коли колонка на зв'язку, кільце гасне й колонка чекає ключову фразу.</li>
+        <li data-i18n="server.setup.wake">У картці колонки оберіть фразу в полі «Ключова фраза»: Hey Jarvis, Okay Nabu або Hey Mycroft. Колонка запам'ятовує вибір і одразу слухає нову фразу.</li>
+        <li data-i18n="server.setup.language">Асистент слухає й відповідає мовою, якою була сторінка налаштувань, коли ви створили пароль. Щоб обрати іншу, у розділі «Розмова» змініть поле «Мова розмови» й натисніть «Зберегти» в тому ж блоці. Після цього колонка готова до розмови.</li>
+      </ol>
+      <h3 data-i18n="server.first.title">Перша розмова</h3>
+      <ol class="steps">
+        <li data-i18n="server.first.say">Скажіть обрану ключову фразу або коротко натисніть кнопку зверху. Колонка подасть м'який сигнал із двох нот угору, а кільце засвітиться повністю: вона вас слухає.</li>
+        <li data-i18n="server.first.ask">Почніть говорити трохи після сигналу й задайте питання вголос. Коли ви замовкли, кільце «дихає», то яскравіше, то тьмяніше: колонка думає. Коли вона відповідає, кільце світиться трохи тьмяніше, ніж під час слухання.</li>
+        <li data-i18n="server.first.more">Після відповіді кілька секунд можна питати далі без ключової фрази: кільце тоді світиться слабко.</li>
+        <li data-i18n="server.first.stop">Щоб завершити, скажіть «Дякую, все»: прозвучить сигнал із двох нот униз, і кільце згасне. Кнопка зверху так само зупиняє розмову, коли колонка слухає чи відповідає, а коли колонка мовчить, кнопка її починає.</li>
+      </ol>
+      <div class="table-wrap">
+        <table class="ring-table">
+          <caption data-i18n="server.first.ring.caption">Що показує кільце</caption>
+          <thead>
+            <tr>
+              <th scope="col" data-i18n="server.first.col.ring">Кільце</th>
+              <th scope="col" data-i18n="server.first.col.meaning">Що це означає</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td data-i18n="server.first.r1.look">повільно «дихає», раз на 4 с</td><td data-i18n="server.first.r1.mean">сервер не під'єднаний до колонки: див. «Якщо не вийшло» нижче</td></tr>
+            <tr><td data-i18n="server.first.r2.look">не світиться</td><td data-i18n="server.first.r2.mean">колонка чекає ключову фразу</td></tr>
+            <tr><td data-i18n="server.first.r3.look">світиться повністю</td><td data-i18n="server.first.r3.mean">колонка вас слухає</td></tr>
+            <tr><td data-i18n="server.first.r4.look">«дихає» швидше й яскравіше</td><td data-i18n="server.first.r4.mean">колонка думає над відповіддю</td></tr>
+            <tr><td data-i18n="server.first.r5.look">світиться трохи тьмяніше</td><td data-i18n="server.first.r5.mean">колонка відповідає</td></tr>
+            <tr><td data-i18n="server.first.r6.look">світиться слабко</td><td data-i18n="server.first.r6.mean">колонка чекає продовження без ключової фрази</td></tr>
+            <tr><td data-i18n="server.first.r7.look">три м'які спалахи</td><td data-i18n="server.first.r7.mean">сталася помилка; за мить колонка знову чекає ключову фразу</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3 data-i18n="server.update.title">Оновлення сервера</h3>
+      <p data-i18n="server.update.text">Щоб поставити нову версію сервера, у папці проєкту виконайте команду нижче: вона завантажить зміни, збере службу заново й перезапустить її. Усе, що ви налаштували, лишається в папці data.</p>
+      <pre class="cmd" tabindex="0"><code>git pull &amp;&amp; docker compose up -d --build</code></pre>
+      <h3 data-i18n="server.env.title">Змінні середовища</h3>
+      <p data-i18n="server.env.text">Усі вони необов'язкові. Їх пишуть у файл .env у папці проєкту, кожну окремим рядком у вигляді НАЗВА=значення. Значення, у якому є $, #, пробіли чи лапки, беріть в одинарні лапки; самої одинарної лапки в ньому бути не може.</p>
+      <dl class="env">
+        <dt>OPENAI_API_KEY</dt>
+        <dd data-i18n="server.env.key">Ключ OpenAI лише для першого запуску; далі його міняють на сторінці налаштувань.</dd>
+        <dt>VOICE_HUB_PASSWORD</dt>
+        <dd data-i18n="server.env.password">Пароль сторінки налаштувань. Тоді сторінка не просить створити пароль, а змінити його можна лише цією змінною; так само відновлюють доступ, якщо пароль забули. Мова розмови тоді спершу українська, іншу обирають у розділі «Розмова».</dd>
+        <dt>VOICE_HUB_HOSTS</dt>
+        <dd data-i18n="server.env.hosts">Інші імена, за якими відкривають сторінку налаштувань, через кому; див. «Якщо не вийшло».</dd>
+        <dt>VOICE_HUB_PORT</dt>
+        <dd data-i18n="server.env.port">Інший порт сторінки й звуку, від 1024 до 65535, коли 8080 зайнятий; він має перевагу над портом зі сторінки налаштувань.</dd>
+      </dl>
+      <p data-i18n="server.env.restart">Після зміни файлу .env перезапустіть службу командою нижче.</p>
+      <pre class="cmd" tabindex="0"><code>docker compose up -d</code></pre>
+      <h3 data-i18n="server.trouble.title">Якщо не вийшло</h3>
+      <dl class="trouble">
+        <div class="trouble-item">
+          <dt data-i18n="server.trouble.found.symptom">Колонки немає в списку «Знайдено в мережі»</dt>
+          <dd data-i18n="server.trouble.found.fix">Додайте її за адресою. Знайдіть колонку в налаштуваннях роутера, у списку пристроїв: її ім'я починається з pytaichenko. На сторінці налаштувань у блоці «Додати вручну» впишіть цю адресу в поле «Адреса колонки», поле ключа залиште порожнім і натисніть «Додати».</dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="server.trouble.desktop.symptom">Сервер працює в Docker Desktop на macOS чи Windows</dt>
+          <dd>
+            <span data-i18n="server.trouble.desktop.fix">Сервер розраховано на мережу хоста (host), а Docker Desktop її повноцінно не підтримує: сторінка може не відкритися, а пошук колонок може не спрацювати. Щоб запустити сервер без неї, створіть у папці проєкту файл compose.override.yaml із текстом нижче (сам compose.yaml не міняйте) і знову запустіть службу.</span>
+            <pre class="cmd" tabindex="0"><code>services:
+  voice-hub:
+    network_mode: bridge
+    ports:
+      - "${VOICE_HUB_PORT:-8080}:${VOICE_HUB_PORT:-8080}"</code></pre>
+            <pre class="cmd" tabindex="0"><code>docker compose up -d</code></pre>
+            <span class="trouble-after" data-i18n="server.trouble.desktop.after">Далі на сторінці налаштувань у розділі «Доступ» впишіть у поле «Адреса сервера для колонок» адресу комп'ютера в домашній мережі, лише ім'я або IP без http:// і порту, натисніть «Зберегти» й перезапустіть службу командою нижче. Колонку тоді додають вручну за адресою, як описано вище. Порт у такому режимі міняють лише рядком VOICE_HUB_PORT у файлі .env, а не на сторінці.</span>
+            <pre class="cmd" tabindex="0"><code>docker compose restart</code></pre>
+          </dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="server.trouble.hosts.symptom">Сторінка пише «Сервер не приймає цю адресу»</dt>
+          <dd>
+            <span data-i18n="server.trouble.hosts.fix">Сторінка налаштувань відкривається лише за IP-адресою сервера або за домашнім ім'ям, наприклад із закінченням .local чи .lan. Щоб відкривати її за іншим ім'ям, наприклад за власним доменом, допишіть це ім'я у файл .env у папці проєкту й перезапустіть службу командами нижче. Кілька імен пишуть в одному рядку через кому, тож якщо рядок VOICE_HUB_HOSTS у .env уже є, допишіть нове ім'я в нього, а не додавайте ще один.</span>
+            <pre class="cmd" tabindex="0"><code>printf '\nVOICE_HUB_HOSTS=pytaichenko.example.com\n' &gt;&gt; .env
+docker compose up -d</code></pre>
+          </dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="server.trouble.port.symptom">Служба не запускається, бо порт 8080 зайнятий</dt>
+          <dd>
+            <span data-i18n="server.trouble.port.fix">Оберіть інший порт: впишіть його в рядок VOICE_HUB_PORT у файлі .env у папці проєкту (від 1024 до 65535) і перезапустіть службу командами нижче. Порт із .env має перевагу над портом, збереженим на сторінці налаштувань, а сторінка далі відкривається за новим портом. Якщо рядок VOICE_HUB_PORT у .env уже є, змініть його, а не додавайте ще один.</span>
+            <pre class="cmd" tabindex="0"><code>printf '\nVOICE_HUB_PORT=8090\n' &gt;&gt; .env
+docker compose up -d</code></pre>
+          </dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="server.trouble.firewall.symptom">Сторінка налаштувань відкривається на самому сервері, а з інших пристроїв ні, або колонка вас чує й кільце «дихає», але відповіді не чути</dt>
+          <dd>
+            <span data-i18n="server.trouble.firewall.fix">Найімовірніше, брандмауер сервера не пускає до порту служби: за замовчуванням це 8080 (TCP), а якщо ви задали VOICE_HUB_PORT, то ваш порт. Через цей порт відкривається сторінка налаштувань, і через нього ж колонка бере звук відповіді. Дозвольте цей порт для домашньої мережі: нижче спершу команда для ufw, а потім дві команди для firewalld. У них замініть 192.168.1.0/24 на адреси вашої мережі, а 8080 — на ваш порт, якщо він інший. Не відкривайте порт для всього інтернету.</span>
+            <pre class="cmd" tabindex="0"><code>sudo ufw allow from 192.168.1.0/24 to any port 8080 proto tcp</code></pre>
+            <pre class="cmd" tabindex="0"><code>sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.1.0/24" port port="8080" protocol="tcp" accept'
+sudo firewall-cmd --reload</code></pre>
+          </dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="server.trouble.ring.symptom">Кільце й далі повільно «дихає» раз на 4 с</dt>
+          <dd>
+            <span data-i18n="server.trouble.ring.fix">Так колонка показує, що сервер до неї не під'єднаний. Перевірте, що колонку забрано і вона є в розділі «Колонки», що сервер і колонка в одній мережі (а не, наприклад, колонка в гостьовій мережі Wi-Fi) і що служба працює: у папці проєкту її стан показує команда нижче. Якщо роутер видав колонці нову адресу, змініть її кнопкою «Змінити адресу» в картці колонки.</span>
+            <pre class="cmd" tabindex="0"><code>docker compose ps</code></pre>
+          </dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="server.trouble.removed.symptom">Колонку прибрали, а тепер її треба додати знову</dt>
+          <dd data-i18n="server.trouble.removed.fix">Прибираючи колонку, сервер забуває її ключ, а колонка свій ключ пам'ятає, тож забрати її вдруге не вийде. Зітріть колонку тією ж кнопкою, що в розділі «Прошивка»: під'єднайте її кабелем, натисніть «Встановити прошивку» й виберіть порт. У вікні натисніть червоний пункт «Erase User Data» і підтвердіть кнопкою «Erase User Data». Якщо такого пункту немає, а є «Update Pytaichenko.Speaker», спершу оновіть прошивку: «Update Pytaichenko.Speaker», потім «Install», а коли запис закінчиться, «Next»; тоді «Erase User Data» з'явиться в тому ж вікні. Якщо є лише «Install Pytaichenko.Speaker», натисніть його, поставте галочку «Erase device» і натисніть «Next», а потім «Install». Після стирання вікно попросить мережу Wi-Fi, як під час першого встановлення, а колонка знову з'явиться в списку «Знайдено в мережі», і її можна забрати.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="trouble" class="block">
+    <h2 data-i18n="trouble.title">Якщо щось не так</h2>
+    <div class="section-body">
+      <dl class="trouble">
+        <div class="trouble-item">
+          <dt data-i18n="trouble.mic.symptom">Перше слово після сигналу «слухаю» обрізається</dt>
+          <dd data-i18n="trouble.mic.fix">Мікрофон на старті щоразу дає короткий удар, тож служба розмови відкидає перші 0,4 с звуку, і слово, сказане в ту саму мить, губиться. Це не поломка: почніть говорити трохи після сигналу «слухаю».</dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="trouble.wake.symptom">Ключова фраза іноді не спрацьовує з першого разу</dt>
+          <dd data-i18n="trouble.wake.fix">Скажіть її ще раз: трохи ближче до колонки й чіткіше. Розмову можна почати й кнопкою зверху.</dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="trouble.volume.symptom">Звук занадто гучний або занадто тихий</dt>
+          <dd data-i18n="trouble.volume.fix">Нова колонка починається з гучності 70 %. Скажіть «гучніше» або «тихіше»: кожне слово змінює гучність на 15 %; точний рівень теж можна назвати, наприклад «гучність 80 відсотків». Шкала гучності лінійна в децибелах (дБ), тож навіть невеликий крок добре чутно, а зручний рівень залежить від динаміка й корпусу: підберіть його на слух.</dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="trouble.capacitor.symptom">Конденсатор біля підсилювача гріється</dt>
+          <dd data-i18n="trouble.capacitor.fix">Вимкніть живлення й гляньте на смужку з мінусами («−») на корпусі конденсатора: вона має бути з боку GND, а довга ніжка «+» на VIN. Якщо конденсатор увімкнено навпаки, перепаяйте його правильно; якщо він здувся чи потік, замініть його.</dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="trouble.button.symptom">Перемикач кнопки вискакує з верху, коли сильно натиснути</dt>
+          <dd data-i18n="trouble.button.fix">Без клею його тримають лише гачки, тож при сильному натиску він виходить. Приклейте перемикач краплею термоклею з двох боків, як у кроці збирання верху; клей не має потрапити на штовхач і в щілину ковпачка.</dd>
+        </div>
+        <div class="trouble-item">
+          <dt data-i18n="trouble.arc.symptom">Над перемичками тіла видно щілину, або дуги кільця деренчать</dt>
+          <dd data-i18n="trouble.arc.fix">Дуги підігнано під тіло, надруковане шаром 0,16 мм: верх притискає дуги, і ледь помітна щілина над перемичками, до 0,04 мм, це нормально. Дуги, надруковані тоншим шаром (наприклад, 0,12 мм), виходять нижчими за перемички на 0,04 мм: верх лягає на перемички, а дуги можуть деренчати, тож передрукуйте їх шаром 0,16 мм.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="support" class="block" data-support hidden>
+    <h2 data-i18n="support.title">Підтримати проєкт</h2>
+    <div class="section-body">
+      <p data-i18n="support.text">Якщо проєкт став у пригоді, можна підтримати автора.</p>
+      <div class="support-links">
+        <a class="support-link" data-donate-link="buyMeACoffee" data-link-ready="false" target="_blank" rel="noopener noreferrer" data-i18n="support.bmc">Buy me a coffee</a>
+        <a class="support-link" data-donate-link="monobank" data-link-ready="false" target="_blank" rel="noopener noreferrer" data-i18n="support.monobank">Банка Монобанку</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <p class="footer-license" id="license">
+      <span data-i18n="footer.code">Код</span> —
+      <a data-repo-path="/blob/main/LICENSE" data-repo-ready="false" target="_blank" rel="noopener noreferrer">MIT</a>,
+      <span data-i18n="footer.case">корпус і тексти</span> —
+      <a data-repo-path="/blob/main/LICENSE-hardware" data-repo-ready="false" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>
+      ·
+      <a data-repo-path="/releases" data-repo-ready="false" target="_blank" rel="noopener noreferrer"><span data-i18n="footer.version">Версія</span> <span data-version>1.0.0</span></a>
+    </p>
+  </div>
+</footer>
+
+<script src="assets/text.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/i18n.js"></script>
+<script src="assets/stepper.js"></script>
+<script src="assets/data.js"></script>
+<script src="assets/toc.js"></script>
+<script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+</body>
+</html>

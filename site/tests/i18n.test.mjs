@@ -43,8 +43,8 @@ function anchors(page) {
 }
 
 function attr(tagAttrs, name) {
-  const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*"([^"]*)"`, 'i').exec(tagAttrs);
-  return m ? m[1] : null;
+  const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i').exec(tagAttrs);
+  return m ? (m[1] ?? m[2]) : null;
 }
 
 test('every data-i18n key in index.html exists in uk and en', () => {
@@ -409,12 +409,16 @@ test('sections come in the agreed order with headings', () => {
   assert.match(page, /data-repo-link/);
 });
 
-test('index.html loads only classic local scripts apart from the one pinned ESP Web Tools module, and no fetch/XMLHttpRequest in assets', () => {
+test('index.html loads only classic local scripts apart from the pinned ESP Web Tools module and the Cloudflare Web Analytics beacon, and no fetch/XMLHttpRequest in assets', () => {
   const page = readPage();
   const allTags = [...page.matchAll(/<script\b([^>]*)>/gi)].map((m) => m[1]);
   const modules = allTags.filter((tag) => /\btype\s*=\s*["']?module/i.test(tag));
-  assert.equal(modules.length, 1, 'only the ESP Web Tools script is a module');
-  assert.match(attr(modules[0], 'src'), ESP_WEB_TOOLS);
+  assert.equal(modules.length, 2, 'only the ESP Web Tools script and the analytics beacon are modules');
+  const tools = modules.filter((tag) => ESP_WEB_TOOLS.test(attr(tag, 'src')));
+  assert.equal(tools.length, 1);
+  const beacon = modules.find((tag) => !tools.includes(tag));
+  assert.equal(attr(beacon, 'src'), 'https://static.cloudflareinsights.com/beacon.min.js');
+  assert.deepEqual(JSON.parse(attr(beacon, 'data-cf-beacon')), { token: '840204d8a1474f079305f961f38aa188' });
   const scriptTags = allTags.filter((tag) => !modules.includes(tag));
   assert.ok(scriptTags.length >= 3);
   for (const tag of scriptTags) {

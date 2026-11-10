@@ -82,7 +82,7 @@ jobs:
       - name: Configure
         run: cmake -S v2/firmware/tests/host -B v2/firmware/build-host -DPT_REQUIRE_SANITIZERS=ON
       - name: Build
-        run: cmake --build v2/firmware/build-host --parallel
+        run: cmake --build v2/firmware/build-host --parallel 4
       - name: Test
         run: ctest --test-dir v2/firmware/build-host --output-on-failure
       - uses: actions/setup-node@v4

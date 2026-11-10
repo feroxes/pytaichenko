@@ -58,3 +58,24 @@ test('the render that stood in for the photo is gone', () => {
     assert.doesNotMatch(text, /renders\/hero\.png/, readme);
   }
 });
+
+test('the page carries a link preview with the version 2 photo for chats and social networks', () => {
+  const head = /<head>([\s\S]*?)<\/head>/.exec(readPage())[1];
+  const meta = (key) => {
+    const m = new RegExp(`<meta (?:property|name)="${key.replace(/[.:]/g, '\\$&')}" content="([^"]*)">`).exec(head);
+    return m ? m[1] : null;
+  };
+  const base = 'https://feroxes.github.io/pytaichenko/';
+  assert.equal(meta('og:type'), 'website');
+  assert.equal(meta('og:url'), base);
+  assert.equal(meta('og:title'), /<title[^>]*>([^<]*)<\/title>/.exec(head)[1]);
+  assert.ok(meta('og:description').length > 60 && meta('og:description').length < 300);
+  const image = meta('og:image');
+  assert.ok(image.startsWith(base), 'an absolute address on the published site');
+  const bytes = readFileSync(path.join(siteDir, image.slice(base.length)));
+  assert.deepEqual(jpegSize(bytes), [Number(meta('og:image:width')), Number(meta('og:image:height'))]);
+  assert.ok(meta('og:image:alt').startsWith('Питайченко на столі: '));
+  assert.equal(meta('og:locale'), 'uk_UA');
+  assert.equal(meta('og:locale:alternate'), 'en_US');
+  assert.equal(meta('twitter:card'), 'summary_large_image');
+});

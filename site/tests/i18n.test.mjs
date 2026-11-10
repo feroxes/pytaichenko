@@ -418,7 +418,7 @@ test('index.html loads only classic local scripts apart from the pinned ESP Web 
   assert.equal(tools.length, 1);
   const beacon = modules.find((tag) => !tools.includes(tag));
   assert.equal(attr(beacon, 'src'), 'https://static.cloudflareinsights.com/beacon.min.js');
-  assert.deepEqual(JSON.parse(attr(beacon, 'data-cf-beacon')), { token: '840204d8a1474f079305f961f38aa188' });
+  assert.deepEqual(JSON.parse(attr(beacon, 'data-cf-beacon')), { token: '840204d8a1474f079305f961f38aa188', spa: false });
   const scriptTags = allTags.filter((tag) => !modules.includes(tag));
   assert.ok(scriptTags.length >= 3);
   for (const tag of scriptTags) {

@@ -41,10 +41,10 @@ latch_root_fillet = 0.6;
 latch_relief_clr = 0.2;
 latch_side_clr = 0.4;
 
-function latch_zt(board_top, ov) = board_top + latch_vg - latch_k * clr + latch_k * (ov + clr);
+function latch_zt(board_top, ov, vg = latch_vg) = board_top + vg - latch_k * clr + latch_k * (ov + clr);
 
-function latch_strain(board_top, ov, t, floor_z, c = clr, relief = latch_relief) =
-    1.5 * t * (ov + c) / pow(latch_zt(board_top, ov) - (floor_z - relief), 2);
+function latch_strain(board_top, ov, t, floor_z, c = clr, relief = latch_relief, vg = latch_vg) =
+    1.5 * t * (ov + c) / pow(latch_zt(board_top, ov, vg) - (floor_z - relief), 2);
 
 tray_skin_t = 1.0;
 tray_floor_t = 1.5;
@@ -523,7 +523,8 @@ wire_term_pts = [[0, -(spk_basket_d / 2 + spk_term_out) - 2.5, (spk_term_z0 + sp
 
 tray_slot_w = dk_hdr_w + 2 * board_clr;
 tray_slot_y0 = dk_pin_y0 - dk_pin_pitch / 2 - board_clr;
-tray_slot_y1 = dk_pin_y1 + dk_pin_pitch / 2 + board_clr;
+dkf_stop_clr = 0.1;
+tray_slot_y1 = dk_pin_y1 + dk_pin_pitch / 2 + dkf_stop_clr;
 tray_pin_gap = 0.3;
 tray_pin_floor_z = dk_pin_bot_z - tray_pin_gap;
 tray_pin_groove_w = dk_pin_sq + 2 * board_clr + 0.2;
@@ -532,7 +533,10 @@ tray_pin_groove_y1 = dk_pin_y1 + tray_pin_groove_w / 2;
 tray_rail_in_x = dk_row_x - tray_slot_w / 2 - dk_nest_wall;
 tray_rail_out_x = amp_x0 - amp_clr;
 tray_rail_top_z = dk_z0 - 0.5;
-tray_rail_y1 = dk_y1;
+dkf_latch_c = 0.35;
+tray_rail_y1 = dk_y1 + dkf_latch_c - latch_side_clr;
+dkf_stop_t = tray_rail_y1 - tray_slot_y1;
+dk_back_travel = min(board_clr, sqrt(inner_r * inner_r - pow(dk_w / 2, 2)) + dk_y0);
 
 tray_latch_relief = 0.5;
 tray_latch_root_z = tray_floor_t - tray_latch_relief;
@@ -541,14 +545,16 @@ dks_latch_ov = 0.5;
 dks_latch_c = clr;
 dks_latch_w = 5;
 dks_latch_y = -27;
-dkf_latch_t = 0.6;
-dkf_rail_cut = dk_y1 - tray_slot_y1;
-dkf_latch_ov = 0.8;
-dkf_latch_c = clr;
+dkf_latch_t = 0.65;
+dkf_rail_cut = dk_y1 - tray_rail_y1;
+dkf_latch_ov = 0.5;
+dkf_latch_fillet = 1.0;
+dkf_latch_vg = 0.2;
+dkf_hook_touch = dkf_latch_vg / latch_k;
 dkf_latch_x0 = dk_mod_w / 2 + 0.4;
 dkf_latch_x1 = dk_w / 2 - 0.1;
 dks_latch_strain = latch_strain(dk_z1, dks_latch_ov, dks_latch_t, tray_floor_t, dks_latch_c, tray_latch_relief);
-dkf_latch_strain = latch_strain(dk_z1, dkf_latch_ov, dkf_latch_t, tray_floor_t, dkf_latch_c, tray_latch_relief);
+dkf_latch_strain = latch_strain(dk_z1, dkf_latch_ov, dkf_latch_t, tray_floor_t, dkf_latch_c, tray_latch_relief, dkf_latch_vg);
 
 tray_amp_pad_lx1 = amp_hdr_lx - amp_hdr_pin_d / 2 - 0.6;
 tray_amp_bar_lx0 = amp_hdr_lx + amp_hdr_pin_d / 2 + 0.45;
@@ -737,7 +743,10 @@ assert(tray_rail_out_x - (dk_row_x + tray_slot_w / 2) >= dk_nest_wall);
 assert(tray_pin_floor_z >= 0.6);
 assert(tray_rail_top_z < dk_z0 && tray_rail_top_z > dk_hdr_z0 + 1.5);
 assert(dk_w / 2 - (dk_row_x + tray_pin_groove_w / 2) >= 0.5);
-assert(dks_latch_strain <= 0.016 && dkf_latch_strain <= 0.014);
+assert(dks_latch_strain <= 0.016 && dkf_latch_strain <= 0.014 && dkf_latch_strain <= dks_latch_strain);
+assert(dkf_stop_clr <= 0.1 && dkf_latch_c >= dkf_stop_clr + 0.25 && dkf_hook_touch >= dkf_stop_clr + 0.05 && dkf_stop_t >= 0.8);
+assert(dkf_latch_ov - dk_back_travel >= 0.25 && dk_back_travel <= board_clr);
+assert(dkf_latch_fillet >= latch_root_fillet && dkf_latch_t >= 0.65);
 assert(tray_latch_root_z >= tray_skin_t - 1e-9);
 assert(dkf_latch_x0 > dk_ant_w / 2 + 0.3 && dkf_latch_x0 > dk_mod_w / 2 + 0.3 && dkf_latch_x1 <= dk_w / 2);
 assert(dk_y1 - dkf_latch_ov > dk_pin_y1 + dk_pin_sq / 2 + 1);

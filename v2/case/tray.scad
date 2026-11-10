@@ -32,12 +32,11 @@ module rail_cuts() {
     }
 }
 
-module latch(w, ov, t, c, top = dk_z1) {
+module latch(w, ov, t, c, top = dk_z1, r = latch_root_fillet, vg = latch_vg) {
     zr = tray_latch_root_z;
-    zu = top + latch_vg - latch_k * c;
+    zu = top + vg - latch_k * c;
     zt = zu + latch_k * (ov + c);
     zh = zt + (ov + c);
-    r = latch_root_fillet;
     rotate([90, 0, 0]) linear_extrude(w, center = true)
         polygon(concat(
             [for (i = [0 : 10]) let (a = -90 + 9 * i) [-c - t - r + r * cos(a), zr + r + r * sin(a)]],
@@ -56,7 +55,7 @@ module latch_windows() {
     side_frames() box(-(tray_rail_out_x - dk_w / 2) - 0.3, 0,
         -dks_latch_w / 2 - latch_relief_clr, dks_latch_w / 2 + latch_relief_clr,
         tray_latch_root_z, tray_rail_top_z + 1);
-    front_frames() box(-(dkf_latch_c + dkf_latch_t + latch_root_fillet + latch_relief_clr), dkf_rail_cut,
+    front_frames() box(-(dkf_latch_c + dkf_latch_t + dkf_latch_fillet + latch_relief_clr), dkf_rail_cut,
         -(dkf_latch_x1 - dkf_latch_x0) / 2 - latch_side_clr, (dkf_latch_x1 - dkf_latch_x0) / 2 + latch_side_clr,
         tray_latch_root_z, tray_rail_top_z + 1);
     amp_frame(amp_latch_lx, 1) box(-(amp_clr + tray_amp_stop_t) - 0.3, 0,
@@ -71,7 +70,7 @@ module amp_frame(lx, side) {
 
 module latches() {
     side_frames() latch(dks_latch_w, dks_latch_ov, dks_latch_t, dks_latch_c);
-    front_frames() latch(dkf_latch_x1 - dkf_latch_x0, dkf_latch_ov, dkf_latch_t, dkf_latch_c);
+    front_frames() latch(dkf_latch_x1 - dkf_latch_x0, dkf_latch_ov, dkf_latch_t, dkf_latch_c, dk_z1, dkf_latch_fillet, dkf_latch_vg);
     amp_frame(amp_latch_lx, 1) latch(amp_latch_w, amp_latch_ov, amp_latch_t, amp_latch_c, amp_z0 + amp_t);
 }
 

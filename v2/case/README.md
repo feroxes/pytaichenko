@@ -111,9 +111,14 @@ goes into the case with its wires on.
 ## First-print checks
 
 - Tray: the web above the USB-C opening is only 0.55 thick (between the opening and the gasket groove).
-- Tray: every latch has a 0.6 fillet at its root and stands free of the rail and the nest walls on its whole height
-  (0.4 side slits). If a slit printed fused, open it with a knife before fitting the board, or the latch bends only
-  above the joint and snaps.
+- Tray: every latch has a 0.6 fillet at its root (1.0 on the two DevKitC latches by the antenna) and stands free of
+  the rail and the nest walls on its whole height (0.4 slits, also between the rail ends and the antenna-end
+  latches). If a slit printed fused, open it with a knife before fitting the board, or the latch bends only above
+  the joint and snaps.
+- Tray: the latches only hold the DevKitC down. When a USB-C cable is pushed in, the header strips stop against the
+  closed front ends of their slots (0.1 play), while the antenna-end latches are 0.35 away from the board edge. When
+  the cable is pulled out, the back corners of the board stop against the tray wall after about 0.2. If the board
+  does not drop fully into the slots, check the slot ends for blobs before pressing harder.
 - Tray: the amp latch is short, so it bends further than the DevKitC latches (strain 0.024). If it cracks, a drop of
   hot glue on that edge holds the amp just as well.
 - Body: glue each microphone with liquid hot glue around the edge of its pad only. No glue under the board or near

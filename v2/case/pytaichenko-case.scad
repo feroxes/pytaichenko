@@ -78,6 +78,7 @@ module echo_params() {
     echo(top_gasket_t=top_gasket_t, top_gasket_squeeze=top_gasket_squeeze, top_gasket_c=top_gasket_c, top_gasket_w=top_gasket_w, top_gasket_fit=top_gasket_fit, top_groove_wall=top_groove_wall, top_groove_out_r=top_groove_out_r, top_groove_in_r=top_groove_in_r, top_groove_depth=top_groove_depth, top_gasket_od=top_gasket_od, top_gasket_id=top_gasket_id);
     echo(wire_probe_d=wire_probe_d, wire_probe_r=wire_probe_r, wire_probe_z1=wire_probe_z1, wire_btn_pts=wire_btn_pts, wire_term_pts=wire_term_pts);
     echo(tray_slot_w=tray_slot_w, tray_slot_y0=tray_slot_y0, tray_slot_y1=tray_slot_y1, tray_pin_gap=tray_pin_gap, tray_pin_floor_z=tray_pin_floor_z, tray_pin_groove_w=tray_pin_groove_w, tray_pin_groove_y0=tray_pin_groove_y0, tray_pin_groove_y1=tray_pin_groove_y1);
+    echo(dkf_stop_clr=dkf_stop_clr, dkf_stop_t=dkf_stop_t, dk_back_travel=dk_back_travel, dkf_latch_fillet=dkf_latch_fillet, dkf_latch_vg=dkf_latch_vg, dkf_hook_touch=dkf_hook_touch);
     echo(tray_rail_in_x=tray_rail_in_x, tray_rail_out_x=tray_rail_out_x, tray_rail_top_z=tray_rail_top_z, tray_rail_y1=tray_rail_y1, tray_latch_relief=tray_latch_relief, tray_latch_root_z=tray_latch_root_z);
     echo(dks_latch_t=dks_latch_t, dks_latch_ov=dks_latch_ov, dks_latch_c=dks_latch_c, dks_latch_w=dks_latch_w, dks_latch_y=dks_latch_y, dks_latch_strain=dks_latch_strain);
     echo(dkf_latch_t=dkf_latch_t, dkf_rail_cut=dkf_rail_cut, dkf_latch_ov=dkf_latch_ov, dkf_latch_c=dkf_latch_c, dkf_latch_x0=dkf_latch_x0, dkf_latch_x1=dkf_latch_x1, dkf_latch_strain=dkf_latch_strain);

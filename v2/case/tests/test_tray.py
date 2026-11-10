@@ -173,8 +173,7 @@ def test_header_strips_sit_in_their_slots():
         y_front = p["dk_pin_y1"] + p["dk_pin_pitch"] / 2
         for x in (xc - hw + 0.3, xc + hw - 0.3):
             assert _hit("asm_tray", (x, y_back, zc), (0, -1, 0)) == pytest.approx(p["board_clr"], abs=0.05)
-            front_stop = p["dk_y1"] + p["dkf_latch_c"] - y_front
-            assert _hit("asm_tray", (x, y_front, zc), (0, 1, 0)) == pytest.approx(front_stop, abs=0.05)
+            assert _hit("asm_tray", (x, y_front, zc), (0, 1, 0)) == pytest.approx(p["dkf_stop_clr"], abs=0.05)
             for y in _strip_ys(p)[::3]:
                 assert _hit("asm_tray", (x, y, p["dk_hdr_z0"] + 0.01), (0, 0, -1)) == pytest.approx(0.01, abs=0.005)
         for k in range(0, int(p["dk_pins"]), 3):
@@ -210,22 +209,92 @@ def test_board_cannot_lift():
 def test_latches_stand_free_on_their_whole_height():
     p = params()
     xm = (p["dkf_latch_x0"] + p["dkf_latch_x1"]) / 2
-    behind = p["dk_y1"] + p["dkf_latch_c"] + p["dkf_latch_t"] + 0.1
+    face = p["dk_y1"] + p["dkf_latch_c"]
+    behind = face + p["dkf_latch_t"] + 0.1
     top = p["tray_rail_top_z"] - 0.1
     for s in (-1, 1):
-        for z in np.linspace(p["tray_latch_root_z"] + p["latch_root_fillet"] + 0.1, top, 5):
-            for y in (p["dk_y1"] - 0.1, p["dk_y1"] - p["dkf_rail_cut"] + 0.05, behind):
-                assert not solid_at("asm_tray", (s * xm, y, z)), (s, y, z)
+        for z in np.linspace(p["tray_latch_root_z"] + p["dkf_latch_fillet"] + 0.1, top, 5):
+            for y in (p["tray_rail_y1"] + 0.05, face - 0.05, behind):
+                assert not solid_at("asm_tray", (s * xm, y, z), 0.03), (s, y, z)
             for x in (p["dkf_latch_x0"] - p["latch_side_clr"] / 2, p["dkf_latch_x1"] + p["latch_side_clr"] / 2):
-                assert not solid_at("asm_tray", (s * x, p["dk_y1"] + p["dkf_latch_c"] + p["dkf_latch_t"] / 2, z), 0.03), (s, x, z)
-        assert solid_at("asm_tray", (s * xm, p["dk_y1"] + p["dkf_latch_c"] + p["dkf_latch_t"] / 2, top))
-    assert p["dkf_rail_cut"] >= 0.6 and p["latch_side_clr"] >= 0.4
+                assert not solid_at("asm_tray", (s * x, face + p["dkf_latch_t"] / 2, z), 0.03), (s, x, z)
+        assert solid_at("asm_tray", (s * xm, face + p["dkf_latch_t"] / 2, top))
+    assert face - p["tray_rail_y1"] >= p["latch_side_clr"] - 1e-9 and p["latch_side_clr"] >= 0.4
     hl = p["amp_l"] / 2
     for sx in (-1, 1):
         lx = p["amp_latch_lx"] + sx * (p["amp_latch_w"] / 2 + p["latch_side_clr"] / 2)
         for z in (2.0, 4.0, p["tray_amp_stop_top_z"] - 0.1):
             q = _amp_world(p, lx, hl + p["amp_latch_c"] + p["amp_latch_t"] / 2, z)
             assert not solid_at("asm_tray", q, 0.03), (sx, z)
+
+
+def test_usb_push_lands_on_the_header_stops_not_on_the_end_latches():
+    p = params()
+    hw = p["dk_hdr_w"] / 2
+    y_front = p["dk_pin_y1"] + p["dk_pin_pitch"] / 2
+    zc = p["dk_hdr_z0"] + 1.0
+    assert p["dkf_stop_clr"] <= 0.1
+    assert p["dkf_latch_c"] >= 0.35 and p["dkf_latch_c"] >= p["dkf_stop_clr"] + 0.25
+    for s in (-1, 1):
+        xc = s * p["dk_row_x"]
+        for x in np.linspace(xc - hw + 0.2, xc + hw - 0.2, 5):
+            t = _hit("asm_tray", (x, y_front, zc), (0, 1, 0))
+            assert t == pytest.approx(p["dkf_stop_clr"], abs=0.02), (s, x)
+        for x in np.linspace(p["dkf_latch_x0"] + 0.3, p["dkf_latch_x1"] - 0.3, 4):
+            for z in (p["dk_z0"] + 0.2, (p["dk_z0"] + p["dk_z1"]) / 2):
+                t = _hit("asm_tray", (s * x, p["dk_y1"], z), (0, 1, 0))
+                assert t == pytest.approx(p["dkf_latch_c"], abs=0.02), (s, x, z)
+            t = _hit("asm_tray", (s * x, p["dk_y1"], p["dk_z1"] - 0.001), (0, 1, 0))
+            assert t == pytest.approx(p["dkf_hook_touch"], abs=0.02), (s, x)
+            assert t >= p["dkf_stop_clr"] + 0.05
+        y0 = p["tray_slot_y1"] + 0.05
+        y1 = p["tray_rail_y1"] - 0.05
+        assert y1 - y0 >= 0.7
+        for x in np.linspace(xc - hw, xc + hw, 5):
+            for y in np.linspace(y0, y1, 3):
+                for z in np.linspace(p["tray_floor_t"] + 0.1, p["dk_z0"] - 0.6, 4):
+                    assert solid_at("asm_tray", (x, y, z), 0.03), (s, x, y, z)
+        face = p["dk_y1"] + p["dkf_latch_c"]
+        for x in np.linspace(xc - hw, xc + hw, 5):
+            if not p["dkf_latch_x0"] - p["latch_side_clr"] < abs(x) < p["dkf_latch_x1"] + p["latch_side_clr"]:
+                continue
+            for z in np.linspace(p["tray_latch_root_z"] + p["dkf_latch_fillet"] + 0.1, p["tray_rail_top_z"] - 0.1, 4):
+                assert not solid_at("asm_tray", (x, (p["tray_rail_y1"] + face) / 2, z), 0.03), (s, x, z)
+        v = _box_volume("asm_tray", xc - hw, xc + hw, p["tray_slot_y1"], p["tray_rail_y1"], p["tray_floor_t"], p["dk_hdr_z0"])
+        assert v == pytest.approx(2 * hw * p["dkf_stop_t"] * (p["dk_hdr_z0"] - p["tray_floor_t"]), rel=0.02)
+
+
+def _shifted_devkit(dy):
+    m = _manifold(mesh("asm_devkit")).translate([0.0, float(dy), 0.0])
+    return float((m ^ _solid("asm_tray")).volume())
+
+
+def test_board_travel_is_stopped_by_rigid_plastic_both_ways():
+    p = params()
+    stop = p["dkf_stop_clr"]
+    assert _shifted_devkit(stop - 0.02) < TOL
+    assert _shifted_devkit(stop + 0.05) > TOL
+    back = p["dk_back_travel"]
+    assert back <= p["board_clr"]
+    assert _shifted_devkit(-(back - 0.02)) < TOL
+    assert _shifted_devkit(-(back + 0.05)) > TOL
+    assert p["dkf_latch_ov"] - back >= 0.25
+    top = p["dk_z1"] + 0.001
+    for s in (-1, 1):
+        for x in np.linspace(p["dkf_latch_x0"] + 0.3, p["dkf_latch_x1"] - 0.3, 4):
+            t = _hit("asm_tray", (s * x, p["dk_y1"] - back - 0.05, top), (0, 0, 1))
+            assert t is not None and t <= 0.6, (s, x, t)
+
+
+def test_end_latch_strain_is_bounded_by_the_side_latches():
+    p = params()
+    assert p["dkf_latch_strain"] <= p["dks_latch_strain"]
+    assert p["dkf_latch_strain"] <= 0.014
+    assert p["dkf_latch_t"] >= 0.65 and p["dkf_latch_fillet"] >= 1.0
+    zt = p["dk_z1"] + p["dkf_latch_vg"] + p["latch_k"] * p["dkf_latch_ov"]
+    span = zt - p["tray_latch_root_z"]
+    want = 1.5 * p["dkf_latch_t"] * (p["dkf_latch_ov"] + p["dkf_latch_c"]) / span ** 2
+    assert p["dkf_latch_strain"] == pytest.approx(want, rel=1e-4)
 
 
 def _amp_world(p, lx, ly, z=None):

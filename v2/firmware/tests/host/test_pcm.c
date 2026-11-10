@@ -7,6 +7,8 @@
 
 #include "pt_pcm.h"
 
+#define PI 3.14159265358979323846
+
 void setUp(void) {}
 void tearDown(void) {}
 
@@ -176,9 +178,9 @@ static double tone_level(const int16_t *x, size_t n, double freq, double rate)
     double re = 0.0;
     double im = 0.0;
     for (size_t i = 0; i < n; i++) {
-        double w = 0.5 - 0.5 * cos(2.0 * M_PI * (double)i / (double)(n - 1));
-        re += w * x[i] * cos(2.0 * M_PI * freq * (double)i / rate);
-        im += w * x[i] * sin(2.0 * M_PI * freq * (double)i / rate);
+        double w = 0.5 - 0.5 * cos(2.0 * PI * (double)i / (double)(n - 1));
+        re += w * x[i] * cos(2.0 * PI * freq * (double)i / rate);
+        im += w * x[i] * sin(2.0 * PI * freq * (double)i / rate);
     }
     return sqrt(re * re + im * im) / (double)n;
 }
@@ -186,7 +188,7 @@ static double tone_level(const int16_t *x, size_t n, double freq, double rate)
 static void sine24(int16_t *x, size_t n, double freq, double amp)
 {
     for (size_t i = 0; i < n; i++)
-        x[i] = (int16_t)lround(amp * sin(2.0 * M_PI * freq * (double)i / 24000.0));
+        x[i] = (int16_t)lround(amp * sin(2.0 * PI * freq * (double)i / 24000.0));
 }
 
 void test_up2_doubles_the_sample_count_and_keeps_dc(void)

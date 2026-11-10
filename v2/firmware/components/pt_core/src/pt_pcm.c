@@ -150,6 +150,7 @@ size_t pt_up2_run(pt_up2_t *s, const int16_t *in, size_t n, int16_t *out)
 #define TEST_SOUND_RATE 24000.0f
 #define TEST_SOUND_AMP 7300.0f
 #define TEST_SOUND_FADE 240
+#define TWO_PI 6.28318530717958647692f
 
 size_t pt_test_sound(int16_t *out, size_t cap)
 {
@@ -159,7 +160,7 @@ size_t pt_test_sound(int16_t *out, size_t cap)
     size_t at = 0;
     for (size_t k = 0; k < 4; k++) {
         size_t len = k < 3 ? PT_TEST_SOUND_NOTE : PT_TEST_SOUND_LAST;
-        float step = 2.0f * (float)M_PI * notes[k] / TEST_SOUND_RATE;
+        float step = TWO_PI * notes[k] / TEST_SOUND_RATE;
         for (size_t i = 0; i < len; i++) {
             float env = 1.0f;
             if (i < TEST_SOUND_FADE)

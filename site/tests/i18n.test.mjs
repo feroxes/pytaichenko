@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { assetScripts, loadScripts, makeElement, makeEnv, readPage, readSite, siteDir } from './helpers.mjs';
 
-const SCRIPTS = ['assets/text.js', 'assets/config.js', 'assets/i18n.js'];
+const SCRIPTS = ['assets/text.js', 'assets/config.js', 'assets/version.js', 'assets/i18n.js'];
 
 const ESP_WEB_TOOLS = /^https:\/\/unpkg\.com\/esp-web-tools@10\.\d+\.\d+\/dist\/web\/install-button\.js\?module$/;
 
@@ -184,18 +184,18 @@ test('a language in the address wins on load and is not stored', () => {
   const P = loadScripts(SCRIPTS, env);
   assert.equal(P.lang, 'en');
   assert.equal(env.root.getAttribute('lang'), 'en');
-  assert.equal(env.location.href, 'https://example.github.io/pytaichenko/?lang=en#server');
+  assert.equal(env.location.href, 'https://example.github.io/pytaichenko/?lang=en&v=2#server');
   assert.equal(env.store.get('pytaichenko-lang'), 'uk');
 });
 
-test('the address always shows the language, and switching changes it', () => {
+test('the address always shows the language and the version, and switching the language changes only the language', () => {
   const enBtn = makeElement({ 'data-set-lang': 'en' });
   const env = makeEnv({ children: [enBtn], languages: ['uk-UA'], href: 'https://example.github.io/pytaichenko/#parts' });
   const P = loadScripts(SCRIPTS, env);
-  assert.equal(env.location.href, 'https://example.github.io/pytaichenko/?lang=uk#parts');
+  assert.equal(env.location.href, 'https://example.github.io/pytaichenko/?lang=uk&v=2#parts');
   enBtn.dispatchEvent({ type: 'click' });
   assert.equal(P.lang, 'en');
-  assert.equal(env.location.href, 'https://example.github.io/pytaichenko/?lang=en#parts');
+  assert.equal(env.location.href, 'https://example.github.io/pytaichenko/?lang=en&v=2#parts');
   assert.equal(env.store.get('pytaichenko-lang'), 'en');
 });
 
@@ -229,11 +229,11 @@ test('clicking a language button switches the language', () => {
   assert.equal(titleEl.textContent, P.TEXT.en['hero.title']);
 });
 
-test('CONFIG has the owner repoUrl, a release version, a USD rate, a dated rate and empty donate links', () => {
+test('CONFIG has the owner repoUrl, a USD rate, a dated rate and the Donatello link, and leaves release numbers to releases.js', () => {
   const { CONFIG } = loadScripts(['assets/config.js']);
   assert.equal(CONFIG.repoUrl, 'https://github.com/feroxes/pytaichenko');
-  assert.match(CONFIG.version, /^\d+\.\d+\.\d+$/);
-  assert.deepEqual({ ...CONFIG.donate }, { buyMeACoffee: '', monobank: '' });
+  assert.equal('version' in CONFIG, false);
+  assert.deepEqual({ ...CONFIG.donate }, { donatello: 'https://donatello.to/feroxes' });
   assert.equal(typeof CONFIG.usdRate, 'number');
   assert.ok(CONFIG.usdRate > 0);
   assert.match(CONFIG.ratesDate, /^\d{4}-\d{2}-\d{2}$/);
@@ -280,18 +280,40 @@ test('repository page links follow repoUrl and stay plain text without a usable 
   }
 });
 
-test('the version slot shows CONFIG.version and keeps its text when the value is not a release number', () => {
+test('the version slot shows the release number of the shown version and is emptied and hidden when there is no release number for it', () => {
   const slot = makeElement({ 'data-version': '' }, '1.0.0');
-  const env = makeEnv({ children: [slot] });
-  const P = loadScripts(['assets/config.js'], env);
-  P.CONFIG.version = '2.1.0';
+  const box = makeElement({ 'data-version-box': '', hidden: '' }, '', [slot]);
+  const env = makeEnv({ children: [box] });
+  const P = loadScripts(['assets/releases.js', 'assets/config.js'], env);
+  P.applyConfig(env.document);
+  assert.equal(slot.textContent, '', 'no version chosen yet: no number');
+  assert.ok(box.hasAttribute('hidden'));
+  P.version = '2';
+  P.RELEASES['2'].version = '2.1.0';
   P.applyConfig(env.document);
   assert.equal(slot.textContent, '2.1.0');
+  assert.equal(box.hasAttribute('hidden'), false);
   for (const bad of ['', '2.1', '<b>2.1.0</b>', undefined]) {
-    P.CONFIG.version = bad;
+    P.RELEASES['2'].version = '2.1.0';
     P.applyConfig(env.document);
-    assert.equal(slot.textContent, '2.1.0', String(bad));
+    P.RELEASES['2'].version = bad;
+    P.applyConfig(env.document);
+    assert.equal(slot.textContent, '', String(bad));
+    assert.ok(box.hasAttribute('hidden'), String(bad));
   }
+  P.RELEASES['2'].version = '2.1.0';
+  P.version = '7';
+  P.applyConfig(env.document);
+  assert.equal(slot.textContent, '');
+  assert.ok(box.hasAttribute('hidden'));
+  P.version = 'constructor';
+  assert.doesNotThrow(() => P.applyConfig(env.document));
+  assert.equal(slot.textContent, '');
+  delete P.RELEASES['2'];
+  P.version = '2';
+  P.applyConfig(env.document);
+  assert.equal(slot.textContent, '');
+  assert.ok(box.hasAttribute('hidden'));
 });
 
 test('the support buttons are visible but have no href while their CONFIG.donate links are empty, and link once a link is set', () => {
@@ -343,16 +365,17 @@ test('the support section is hidden while both CONFIG.donate links are empty or 
   assert.equal(bmc.hasAttribute('hidden'), true);
 });
 
-test('the support block sits at the end of the page, above the license: a heading, one calm line and the two buttons, in both languages', () => {
+test('the support block sits at the end of the page, above the license: a heading, one calm line and a heart Donate button, in both languages', () => {
   const page = readPage();
   const { TEXT } = loadScripts(['assets/text.js']);
   const m = /<section id="support" class="block" data-support hidden>([\s\S]*?)<\/section>\s*<\/main>\s*<footer\b/.exec(page);
   assert.ok(m, 'the support section is the last one in main, right before the footer');
   const body = m[1];
   const keys = [...body.matchAll(/data-i18n="([^"]+)"/g)].map((k) => k[1]);
-  assert.deepEqual(keys, ['support.title', 'support.text', 'support.bmc', 'support.monobank']);
-  const links = [...body.matchAll(/<a\b([^>]*)>([^<]*)<\/a>/g)];
-  assert.deepEqual(links.map((l) => /data-donate-link="(\w+)"/.exec(l[1])[1]), ['buyMeACoffee', 'monobank']);
+  assert.deepEqual(keys, ['support.title', 'support.text', 'support.donate']);
+  const links = [...body.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)];
+  assert.deepEqual(links.map((l) => /data-donate-link="(\w+)"/.exec(l[1])[1]), ['donatello']);
+  assert.match(links[0][2], /class="donate-heart"/);
   for (const l of links) {
     assert.doesNotMatch(l[1], /\bhref=/, 'no href in the static markup');
     assert.match(l[1], /target="_blank"/);
@@ -360,10 +383,8 @@ test('the support block sits at the end of the page, above the license: a headin
   }
   assert.equal(TEXT.uk['support.title'], 'Підтримати проєкт');
   assert.equal(TEXT.en['support.title'], 'Support the project');
-  assert.equal(TEXT.uk['support.bmc'], 'Buy me a coffee');
-  assert.equal(TEXT.en['support.bmc'], 'Buy me a coffee');
-  assert.equal(TEXT.uk['support.monobank'], 'Банка Монобанку');
-  assert.equal(TEXT.en['support.monobank'], 'Monobank jar');
+  assert.equal(TEXT.uk['support.donate'], 'Donate');
+  assert.equal(TEXT.en['support.donate'], 'Donate');
   assert.equal(TEXT.uk['support.text'], 'Якщо проєкт став у пригоді, можна підтримати автора.');
   for (const lang of ['uk', 'en']) assert.doesNotMatch(TEXT[lang]['support.text'], /!|будь ласка|please|негайно|now/i, lang);
   assert.doesNotMatch(body, /<script|<iframe|buymeacoffee\.com|monobank\.ua/i, 'no widgets or scripts of the services');
@@ -377,7 +398,7 @@ test('sections come in the agreed order with headings', () => {
   const ids = [...page.matchAll(/<section\b[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(ids, ['about', 'can', 'need', 'parts', 'tools', 'print', 'solder', 'assembly', 'firmware', 'server', 'trouble', 'support']);
   for (const id of ids) {
-    const block = new RegExp(`<section\\b[^>]*\\bid="${id}"[^>]*>\\s*<h[12]\\b[^>]*data-i18n="[^"]+"`).exec(page);
+    const block = new RegExp(`<section\\b[^>]*\\bid="${id}"[^>]*>\\s*(?:<div\\b[^>]*\\bdata-for-v="\\d"[^>]*>\\s*)?<h[12]\\b[^>]*data-i18n="[^"]+"`).exec(page);
     assert.ok(block, `section ${id} needs a translated heading right at its start`);
   }
   assert.match(page, /<header\b/);
@@ -544,4 +565,27 @@ test('no exclamation marks in the page text, except inside quoted labels of the 
       assert.doesNotMatch(value.replace(/«[^»]*»|“[^”]*”/g, ''), /!/, `${lang} ${key}`);
     }
   }
+});
+
+test('the header starts with a heart Donate link to Donatello that config.js fills in and shows', () => {
+  const page = readPage();
+  const m = /<div class="header-tools">\s*<a ([^>]*)>([\s\S]*?)<\/a>/.exec(page);
+  assert.ok(m, 'the first item in the header tools is a link');
+  assert.match(m[1], /class="donate-link"/);
+  assert.match(m[1], /data-donate-link="donatello"/);
+  assert.match(m[1], /\bhidden\b/);
+  assert.doesNotMatch(m[1], /\bhref=/);
+  assert.match(m[1], /target="_blank"/);
+  assert.match(m[1], /rel="noopener noreferrer"/);
+  assert.match(m[2], /class="donate-heart"/);
+  assert.match(m[2], /data-i18n="header.donate"/);
+  const { TEXT } = loadScripts(['assets/text.js']);
+  assert.equal(TEXT.uk['header.donate'], 'Donate');
+  assert.equal(TEXT.en['header.donate'], 'Donate');
+  const link = makeElement({ 'data-donate-link': 'donatello', hidden: '' });
+  const env = makeEnv({ children: [link] });
+  const P = loadScripts(['assets/config.js'], env);
+  P.applyConfig(env.document);
+  assert.equal(link.getAttribute('href'), 'https://donatello.to/feroxes');
+  assert.equal(link.hasAttribute('hidden'), false);
 });

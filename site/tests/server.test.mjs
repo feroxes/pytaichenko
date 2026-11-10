@@ -30,7 +30,7 @@ function serverText() {
 }
 
 function settingsLabels() {
-  const app = readRepo('hub/src/voice_hub/web/app.js');
+  const app = readRepo('v1/hub/src/voice_hub/web/app.js');
   const start = app.indexOf('\n  var TEXT = {\n    uk: {');
   const cut = app.indexOf('\n    en: {', start);
   const end = app.indexOf('\n  };', cut);
@@ -119,12 +119,12 @@ test('the start commands are in <code>: git clone of CONFIG.repoUrl, cd into its
   assert.ok(run, 'the start part sits between its heading and the setup heading');
   const blocks = codeBlocks(run[0]);
   assert.equal(blocks.length, 2, 'the three commands, then the command that adds the user to the docker group');
-  assert.deepEqual(blocks[0].split('\n'), [`git clone ${CONFIG.repoUrl}`, 'cd pytaichenko', 'docker compose up -d']);
+  assert.deepEqual(blocks[0].split('\n'), [`git clone ${CONFIG.repoUrl}`, 'cd pytaichenko/v1', 'docker compose up -d']);
   assert.equal(blocks[1], 'sudo usermod -aG docker $USER');
   assert.ok(run[0].indexOf('server.run.perm') > run[0].indexOf('docker compose up -d'), 'the permission note comes right after the commands');
   assert.ok(run[0].indexOf('server.run.perm') < run[0].indexOf('server.run.after'));
   assert.match(run[0], /<span data-repo-url>https:\/\/github\.com\/feroxes\/pytaichenko<\/span>/);
-  assert.match(run[0], /cd <span data-repo-dir>pytaichenko<\/span>/);
+  assert.match(run[0], /cd <span data-repo-dir>pytaichenko<\/span>\/v1/);
   const keys = keysIn(run[0]);
   for (const key of ['server.run.text', 'server.run.perm', 'server.run.after']) assert.ok(keys.includes(key), key);
   const TEXT = serverText();
@@ -183,14 +183,14 @@ test('applyConfig puts CONFIG.repoUrl and its folder into the clone commands, an
 });
 
 test('the facts the page states match compose.yaml and the service defaults: build from ./hub, host network, data in ./data, restart unless stopped, port 8080', () => {
-  const compose = readRepo('compose.yaml');
+  const compose = readRepo('v1/compose.yaml');
   assert.match(compose, /^\s*build: \.\/hub\s*$/m);
   assert.match(compose, /^\s*network_mode: host\s*$/m);
   assert.match(compose, /^\s*- \.\/data:\/data\s*$/m);
   assert.match(compose, /^\s*restart: unless-stopped\s*$/m);
   assert.match(compose, /VOICE_HUB_HOSTS/);
   assert.match(compose, /VOICE_HUB_PORT/);
-  assert.match(readRepo('hub/src/voice_hub/settings.py'), /http_port: int = 8080/);
+  assert.match(readRepo('v1/hub/src/voice_hub/settings.py'), /http_port: int = 8080/);
   assert.ok(codeBlocks(sectionHtml(readPage(), 'server')).includes('http://<адреса сервера>:8080'));
 });
 
@@ -252,7 +252,7 @@ test('the adopt step answers the firmware section: right after flashing, the spe
 });
 
 test('the wake phrase step and “What it does” name the three phrases the shared firmware carries', () => {
-  const models = [...readRepo('firmware/packages/wake_word.yaml').matchAll(/^\s*- model: \S*?(\w+)\.json/gm)].map((m) => m[1]);
+  const models = [...readRepo('v1/firmware/packages/wake_word.yaml').matchAll(/^\s*- model: \S*?(\w+)\.json/gm)].map((m) => m[1]);
   assert.deepEqual(models, ['hey_jarvis', 'okay_nabu', 'hey_mycroft']);
   const phrases = models.map((id) => id.split('_').map((w) => w[0].toUpperCase() + w.slice(1)).join(' '));
   const TEXT = serverText();
@@ -448,9 +448,9 @@ test('the first conversation follows the setup steps and tells what the ring, th
   assert.ok(TEXT.uk['server.first.r1.mean'].includes(`«${TEXT.uk['server.trouble.title']}»`));
   assert.ok(TEXT.en['server.first.r1.mean'].includes(`“${TEXT.en['server.trouble.title']}”`));
 
-  const ring = readRepo('firmware/packages/ring.yaml');
-  const assistant = readRepo('firmware/packages/assistant.yaml');
-  const buttons = readRepo('firmware/packages/buttons.yaml');
+  const ring = readRepo('v1/firmware/packages/ring.yaml');
+  const assistant = readRepo('v1/firmware/packages/assistant.yaml');
+  const buttons = readRepo('v1/firmware/packages/buttons.yaml');
   assert.match(ring, /pulse: \{name: Offline, transition_length: 2s, update_interval: 2s, min_brightness: 0%, max_brightness: 70%\}/, 'breathes slowly once every 4 s');
   assert.doesNotMatch(assistant + ring, /id: ring, effect: Offline\}/, 'the breathing starts from dark, not from the last brightness');
   assert.match(assistant + ring, /id: ring, effect: Offline, brightness: 1%\}/);
@@ -468,7 +468,7 @@ test('the root READMEs leave the server commands to the site, which tells about 
   for (const [file, lang] of [['README.md', 'en'], ['README.uk.md', 'uk']]) {
     const readme = readRepo(file);
     assert.doesNotMatch(readme, /docker compose/, `${file} has no server commands of its own`);
-    assert.ok(readme.includes(`https://feroxes.github.io/pytaichenko/?lang=${lang}#server`), `${file} links to the server section`);
+    assert.ok(readme.includes(`https://feroxes.github.io/pytaichenko/?lang=${lang}&v=1#server`), `${file} links to the server section`);
   }
   const run = /data-i18n="server\.run\.title"[\s\S]*?data-i18n="server\.setup\.title"/.exec(sectionHtml(readPage(), 'server'))[0];
   const commands = run.indexOf('docker compose up -d');
@@ -500,7 +500,7 @@ test('the environment variables: the four that compose.yaml passes, one line eac
   assert.deepEqual(pairs.map((p) => p[0]), names);
   assert.deepEqual(pairs.map((p) => p[1]), ['server.env.key', 'server.env.password', 'server.env.hosts', 'server.env.port']);
   assert.equal([...list[1].matchAll(/<dt\b/g)].length, names.length);
-  const compose = readRepo('compose.yaml');
+  const compose = readRepo('v1/compose.yaml');
   for (const name of names) assert.match(compose, new RegExp(`${name}: \\$\\{${name}:-\\}`), `compose.yaml passes ${name}`);
   assert.deepEqual(codeBlocks(part), ['docker compose up -d']);
   assert.ok(part.indexOf('server.env.restart') < part.indexOf('docker compose up -d'));

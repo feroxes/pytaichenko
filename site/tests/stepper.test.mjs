@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadScripts, makeElement, makeEnv, readPage, readSite } from './helpers.mjs';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { loadScripts, makeElement, makeEnv, readPage, readSite, siteDir } from './helpers.mjs';
 import { HEX, contrast, insideOf, openAttr, pageBackgrounds, paintedShapes, svgItems } from './svg-helpers.mjs';
 
 const SCRIPTS = ['assets/text.js', 'assets/config.js', 'assets/i18n.js', 'assets/stepper.js'];
 const STEPPERS = { mic: 5, capacitor: 9, ring: 9, button: 6, devkit: 9 };
+const V2_SOLDER = { v2_mics: 6, v2_amp: 5, v2_ring: 9, v2_button: 4, v2_speaker: 2, v2_devkit: 13 };
+const DRAWN = { ...STEPPERS, ...V2_SOLDER };
 
 function pinMapBlock(page) {
   const m = /<figure\b[^>]*\bdata-pinmap\b[^>]*>([\s\S]*?)<\/figure>/.exec(page);
@@ -13,7 +17,7 @@ function pinMapBlock(page) {
 }
 
 function drawingBlocks(page) {
-  const blocks = Object.keys(STEPPERS).map((id) => ({ id, body: stepperBlock(page, id).body }));
+  const blocks = Object.keys(DRAWN).map((id) => ({ id, body: stepperBlock(page, id).body }));
   blocks.push({ id: 'pinmap', body: pinMapBlock(page).body });
   return blocks;
 }
@@ -81,7 +85,7 @@ test('nextStep moves one step, wraps from the last step to the first and stays o
 test('each stepper in the page numbers its steps 1..N without gaps and has N dots and N captions in uk and en', () => {
   const { TEXT } = loadScripts(['assets/text.js']);
   const page = readPage();
-  for (const [id, expected] of Object.entries(STEPPERS)) {
+  for (const [id, expected] of Object.entries(DRAWN)) {
     const { open, body } = stepperBlock(page, id);
     const n = Number(openAttr(open, 'data-steps'));
     assert.equal(n, expected, `${id}: data-steps`);
@@ -214,7 +218,7 @@ test('on the light page pale parts keep a visible outline: no part or line below
 
 test('stepper markup: figure with caption, real buttons without aria-pressed, unique ids, no dead url() references', () => {
   const page = readPage();
-  for (const id of Object.keys(STEPPERS)) {
+  for (const id of Object.keys(DRAWN)) {
     const { body } = stepperBlock(page, id);
     assert.match(body, /\bdata-stepper-caption\b/);
     assert.match(body, /<div class="stepper-caption" data-stepper-caption aria-live="off">/);
@@ -241,7 +245,8 @@ test('the steppers sit inside the solder section in the page order, after its he
 
 test('the soldering steppers follow the spec order: microphone, amplifier capacitor, ring, button, DevKit, each right after its own heading', () => {
   assert.deepEqual(Object.keys(STEPPERS), ['mic', 'capacitor', 'ring', 'button', 'devkit']);
-  const section = /<section\b[^>]*\bid="solder"[^>]*>([\s\S]*?)<\/section>/.exec(readPage())[1];
+  const whole = /<section\b[^>]*\bid="solder"[^>]*>([\s\S]*?)<\/section>/.exec(readPage())[1];
+  const section = whole.slice(0, whole.indexOf('data-for-v="2"'));
   const headings = [...section.matchAll(/<h3\b[^>]*\bdata-i18n="solder\.(\w+)\.title">/g)].map((m) => m[1]);
   assert.deepEqual(headings, ['mic', 'capacitor', 'ring', 'button', 'devkit', 'pinmap', 'wires']);
   const figures = [...section.matchAll(/<figure\b[^>]*\bdata-stepper="(\w+)"/g)].map((m) => m[1]);
@@ -254,7 +259,7 @@ test('the soldering steppers follow the spec order: microphone, amplifier capaci
 test('the static markup already shows step 1 in Ukrainian before any script runs', () => {
   const { TEXT } = loadScripts(['assets/text.js']);
   const page = readPage();
-  for (const [id, n] of Object.entries(STEPPERS)) {
+  for (const [id, n] of Object.entries(DRAWN)) {
     const { body } = stepperBlock(page, id);
     const caption = /<div\b[^>]*\bdata-stepper-caption\b[^>]*>([^<]*)<\/div>/.exec(body);
     assert.ok(caption, `${id}: no caption box`);
@@ -464,7 +469,7 @@ test('every stepper drawing sits in its own .stepper-frame; caption and controls
     svg: { opening: /^\s*<div class="stepper-frame">\s*<svg\b/, closing: /<\/svg>\s*<\/div>\s*<div class="stepper-caption-box">\s*<div class="stepper-caption"/ },
     image: { opening: /^\s*<div class="stepper-frame">\s*<div class="stepper-stack">\s*<img\b/, closing: /<img\b[^>]*>\s*<\/div>\s*<\/div>\s*<div class="stepper-caption-box">\s*<div class="stepper-caption"/ },
   };
-  const kinds = { ...Object.fromEntries(Object.keys(STEPPERS).map((id) => [id, 'svg'])), asm_body: 'image', asm_top: 'image', asm_join: 'image', asm_tray: 'image' };
+  const kinds = { ...Object.fromEntries(Object.keys(DRAWN).map((id) => [id, 'svg'])), asm_body: 'image', asm_top: 'image', asm_join: 'image', asm_tray: 'image', v2_asm_tray: 'image', v2_asm_body: 'image', v2_asm_top: 'image' };
   for (const [id, kind] of Object.entries(kinds)) {
     const { body } = stepperBlock(page, id);
     assert.match(body, FRAME[kind].opening, `${id}: the ${kind} must be the content of a .stepper-frame`);
@@ -661,7 +666,7 @@ test('the amplifier stepper first solders the header and the terminal from below
 
 test('every stepper figure is named by the h3 right before it, so the Back and Next pairs can be told apart', () => {
   const page = readPage();
-  const ids = ['mic', 'capacitor', 'ring', 'button', 'devkit', 'asm_body', 'asm_top', 'asm_join', 'asm_tray'];
+  const ids = ['mic', 'capacitor', 'ring', 'button', 'devkit', ...Object.keys(V2_SOLDER), 'asm_body', 'asm_top', 'asm_join', 'asm_tray', 'v2_asm_tray', 'v2_asm_body', 'v2_asm_top'];
   const figures = [...page.matchAll(/<figure\b[^>]*\bdata-stepper="(\w+)"[^>]*>/g)];
   assert.deepEqual(figures.map((m) => m[1]), ids);
   for (const m of figures) {
@@ -693,7 +698,7 @@ test('ring step 9 only warns that the metal tab is connected to D: no heat-shrin
 
 test('every stepper keeps its caption box as high as its longest caption: a hidden sizer stacks all captions in the same grid cell', () => {
   const page = readPage();
-  for (const id of [...Object.keys(STEPPERS), 'asm_body', 'asm_top', 'asm_join', 'asm_tray']) {
+  for (const id of [...Object.keys(DRAWN), 'asm_body', 'asm_top', 'asm_join', 'asm_tray']) {
     const { body } = stepperBlock(page, id);
     assert.match(
       body,
@@ -767,8 +772,8 @@ test('on a phone the caption keeps room for three lines and every drawing wider 
   const { TEXT } = loadScripts(['assets/text.js']);
   const page = readPage();
   const tags = [...page.matchAll(/<figure\b[^>]*>/g)].map((m) => m[0]);
-  const withSvg = tags.filter((t) => /data-stepper="(?:mic|capacitor|ring|button|devkit)"|data-pinmap/.test(t));
-  assert.equal(withSvg.length, 6);
+  const withSvg = tags.filter((t) => /data-stepper="(?:mic|capacitor|ring|button|devkit|v2_mics|v2_amp|v2_ring|v2_button|v2_speaker|v2_devkit)"|data-pinmap/.test(t));
+  assert.equal(withSvg.length, 12);
   for (const tag of withSvg) {
     assert.equal(openAttr(tag.slice(7), 'data-scroll-hint'), TEXT.uk['steps.scroll_hint'], tag);
     assert.match(openAttr(tag.slice(7), 'data-i18n-attr'), /^data-scroll-hint:steps\.scroll_hint$/);
@@ -776,4 +781,86 @@ test('on a phone the caption keeps room for three lines and every drawing wider 
   for (const tag of tags.filter((t) => /data-stepper="asm_/.test(t))) assert.doesNotMatch(tag, /data-scroll-hint/, 'the renders scale and do not scroll');
   assert.match(TEXT.uk['steps.scroll_hint'], /вбік/);
   assert.match(TEXT.en['steps.scroll_hint'], /sideways/);
+});
+
+const V2_STAGES = [
+  { id: 'v2_asm_tray', short: 'tray', readme: 'Tray', uk: 'Лоток', en: 'Tray' },
+  { id: 'v2_asm_body', short: 'body', readme: 'Body onto the tray', uk: 'Тіло на лоток', en: 'Body onto the tray' },
+  { id: 'v2_asm_top', short: 'top', readme: 'Lid', uk: 'Верх', en: 'Top' },
+];
+
+function v2Readme() {
+  const md = readFileSync(path.join(path.resolve(siteDir, '..'), 'v2/case/README.md'), 'utf8');
+  const part = md.slice(md.indexOf('## Assembly steps'));
+  return [...part.matchAll(/^\| (\d+) \| ([^|]+?) \| ([^|]+?) \|$/gm)].map((m) => ({ step: Number(m[1]), stage: m[2], caption: m[3] }));
+}
+
+test('version 2 assembly: three image steppers with the README stage split, renders from renders/v2, dots, alts and captions in uk and en, headed with their stage', () => {
+  const { TEXT } = loadScripts(['assets/text.js']);
+  const page = readPage();
+  const rows = v2Readme();
+  assert.equal(rows.length, 26);
+  assert.deepEqual(rows.map((r) => r.step), Array.from({ length: 26 }, (_, i) => i + 1));
+  const section = /<section\b[^>]*\bid="assembly"[^>]*>([\s\S]*?)<\/section>/.exec(page)[1];
+  const v2 = section.slice(section.indexOf('data-for-v="2"'));
+  assert.deepEqual([...v2.matchAll(/data-stepper="([\w-]+)"/g)].map((m) => m[1]), V2_STAGES.map((st) => st.id));
+  let from = 1;
+  V2_STAGES.forEach((st, i) => {
+    const n = rows.filter((r) => r.stage === st.readme).length;
+    assert.ok(n > 0 && n <= 11, `${st.id}: ${n} steps`);
+    assert.deepEqual(rows.slice(from - 1, from - 1 + n).map((r) => r.stage), Array(n).fill(st.readme), `${st.id} is one run of README rows`);
+    const head = new RegExp(`<h3 id="h-v2-asm-${st.short}" data-i18n="v2\\.assembly\\.${st.short}\\.title">([^<]*)</h3>\\s*<p class="stage-label" data-i18n="v2\\.assembly\\.stage_${i + 1}">([^<]*)</p>\\s*<figure class="stepper" data-stepper="${st.id}" data-steps="${n}" aria-labelledby="h-v2-asm-${st.short}">`).exec(v2);
+    assert.ok(head, `${st.id}: h3, stage label and figure`);
+    for (const lang of ['uk', 'en']) {
+      assert.equal(TEXT[lang][`v2.assembly.${st.short}.title`], st[lang], `${lang} ${st.short} title`);
+      assert.equal(TEXT[lang][`v2.assembly.stage_${i + 1}`], lang === 'uk' ? `Етап ${i + 1} з 3` : `Stage ${i + 1} of 3`, `${lang} stage ${i + 1}`);
+    }
+    assert.equal(head[1], TEXT.uk[`v2.assembly.${st.short}.title`]);
+    assert.equal(head[2], TEXT.uk[`v2.assembly.stage_${i + 1}`]);
+    const { open, body } = stepperBlock(page, st.id);
+    assert.equal(Number(openAttr(open, 'data-steps')), n);
+    const frames = [...body.matchAll(/<img\b([^>]*)>/g)].map((m) => m[1]);
+    assert.equal(frames.length, n, `${st.id}: frames`);
+    frames.forEach((f, k) => {
+      assert.equal(openAttr(f, 'data-s'), String(k + 1));
+      assert.equal(openAttr(f, 'src'), `assets/renders/v2/assembly-${String(from + k).padStart(2, '0')}.png`);
+      assert.equal(openAttr(f, 'width'), '1000');
+      assert.equal(openAttr(f, 'height'), '750');
+      assert.equal(openAttr(f, 'loading'), 'lazy');
+      assert.equal(openAttr(f, 'data-i18n-attr'), `alt:steps.${st.id}.alt_${k + 1}`);
+      assert.equal(openAttr(f, 'alt'), TEXT.uk[`steps.${st.id}.alt_${k + 1}`]);
+      assert.equal(openAttr(f, 'aria-hidden'), k === 0 ? null : 'true');
+    });
+    assert.equal((body.match(/<span class="dot"/g) || []).length, n);
+    assert.match(body, new RegExp(`data-stepper-count>Крок 1 з ${n}<`));
+    const caption = /<div class="stepper-caption" data-stepper-caption aria-live="off">([^<]*)<\/div>/.exec(body);
+    assert.equal(caption[1], TEXT.uk[`steps.${st.id}.1`]);
+    for (const lang of ['uk', 'en']) {
+      for (let k = 1; k <= n; k += 1) {
+        for (const key of [`steps.${st.id}.${k}`, `steps.${st.id}.alt_${k}`]) assert.ok(TEXT[lang][key] && TEXT[lang][key].trim(), `${lang} ${key}`);
+      }
+      assert.equal(TEXT[lang][`steps.${st.id}.${n + 1}`], undefined);
+      assert.equal(TEXT[lang][`steps.${st.id}.alt_${n + 1}`], undefined);
+    }
+    for (let k = 1; k <= n; k += 1) assert.notEqual(TEXT.en[`steps.${st.id}.${k}`], TEXT.uk[`steps.${st.id}.${k}`]);
+    from += n;
+  });
+  assert.equal(from, 27);
+  const ids = [...page.matchAll(/data-stepper="([\w-]+)"/g)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length, 'stepper ids are unique');
+});
+
+test('version 2 assembly captions keep the site words: the top, posts, a Phillips screwdriver, the Soldering section', () => {
+  const { TEXT } = loadScripts(['assets/text.js']);
+  const text = (lang, id) => Object.entries(TEXT[lang]).filter(([k]) => k.startsWith(`steps.${id}.`) && /\.\d+$/.test(k)).map(([, v]) => v).join(' ');
+  assert.match(text('uk', 'v2_asm_body'), /стій/);
+  assert.match(text('en', 'v2_asm_body'), /posts/);
+  for (const id of V2_STAGES.map((st) => st.id)) {
+    for (const lang of ['uk', 'en']) assert.doesNotMatch(text(lang, id), /\blid\b|кришк|шестигран|hex/i, `${lang} ${id}`);
+  }
+  assert.match(text('uk', 'v2_asm_tray'), /«Пайка»/);
+  assert.match(text('en', 'v2_asm_tray'), /Soldering section/);
+  for (const lang of ['uk', 'en']) {
+    for (const id of ['v2_asm_body', 'v2_asm_top']) assert.match(text(lang, id), lang === 'uk' ? /хрестов/ : /Phillips/, `${lang} ${id}`);
+  }
 });

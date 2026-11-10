@@ -93,7 +93,7 @@ function rowsOf(html) {
 }
 
 function bootTable({ languages = ['uk-UA'], stored = null, readyState = 'complete' } = {}) {
-  const tbody = makeElement({ 'data-wires': '' });
+  const tbody = makeElement({ 'data-wires': '1' });
   tbody.innerHTML = '';
   const env = makeEnv({ children: [tbody], languages, stored, readyState });
   const P = loadScripts(SCRIPTS, env);
@@ -245,7 +245,7 @@ test('the wire table sits in a scrolling wrapper in the solder section after the
   const section = /<section\b[^>]*\bid="solder"[^>]*>([\s\S]*?)<\/section>/.exec(page)[1];
   const wrap = /<div class="table-wrap">\s*<table\b([^>]*)>([\s\S]*?)<\/table>\s*<\/div>/.exec(section);
   assert.ok(wrap, 'no .table-wrap table in #solder');
-  assert.match(wrap[2], /<tbody\b[^>]*\bdata-wires\b[^>]*>\s*<\/tbody>/);
+  assert.match(wrap[2], /<tbody\b[^>]*\bdata-wires="1"[^>]*>\s*<\/tbody>/);
   const heads = [...wrap[2].matchAll(/<th\b([^>]*)>([^<]*)<\/th>/g)];
   assert.deepEqual(heads.map((h) => openAttr(h[1], 'data-i18n')), ['wires.col.from', 'wires.col.to', 'wires.col.len']);
   for (const h of heads) {
@@ -488,7 +488,7 @@ test('the wire table styles keep numbers on one line and the estimate quiet', ()
 test('the solder section opens with one sentence: the parts are soldered on the table with free wire ends, the DevKit wires in assembly stage 4', () => {
   const { TEXT } = loadScripts(['assets/text.js']);
   const section = /<section\b[^>]*\bid="solder"[^>]*>([\s\S]*?)<\/section>/.exec(readPage())[1];
-  assert.match(section, /^\s*<h2\b[^>]*>[^<]*<\/h2>\s*<div class="section-body">\s*<p\b[^>]*\bdata-i18n="solder\.intro"[^>]*>[^<]+<\/p>\s*<h3\b[^>]*\bdata-i18n="solder\.mic\.title">/);
+  assert.match(section, /^\s*<h2\b[^>]*>[^<]*<\/h2>\s*<div class="section-body" data-for-v="1">\s*<p\b[^>]*\bdata-i18n="solder\.intro"[^>]*>[^<]+<\/p>\s*<h3\b[^>]*\bdata-i18n="solder\.mic\.title">/);
   const uk = TEXT.uk['solder.intro'];
   const en = TEXT.en['solder.intro'];
   for (const word of [/Мікрофон/, /підсилювач із конденсатором/, /джгут транзистора/, /кнопку/, /на столі/, /другі кінці дротів вільними/, /дроти на DevKit паяють уже на етапі 4 збирання/]) assert.match(uk, word);

@@ -53,7 +53,10 @@ function renderPath(k) {
 function section(page) {
   const m = /<section\b[^>]*\bid="assembly"[^>]*>([\s\S]*?)<\/section>/.exec(page);
   assert.ok(m, 'the assembly section is missing');
-  return m[1];
+  const v1 = m[1].indexOf('<div class="section-body" data-for-v="1">');
+  const v2 = m[1].indexOf('<div class="section-body" data-for-v="2">');
+  assert.ok(v1 >= 0 && v2 > v1, 'the assembly section has a version 1 block, then a version 2 block');
+  return m[1].slice(0, v2);
 }
 
 function stageBlock(page, id) {
@@ -90,12 +93,65 @@ test(`${N} render files exist, are PNG, 1000x750 and between 20 kB and 250 kB, a
     assert.ok(statSync(file).size > 20 * 1024, `assembly-${pad(k)}.png is smaller than 20 kB`);
     assert.ok(statSync(file).size < 250 * 1024, `assembly-${pad(k)}.png is 250 kB or more`);
   }
-  const files = readdirSync(path.join(siteDir, 'assets', 'renders')).sort();
+  const files = readdirSync(path.join(siteDir, 'assets', 'renders')).filter((f) => f !== 'v2').sort();
   assert.deepEqual(files, [...Array.from({ length: N }, (_, i) => `assembly-${pad(i + 1)}.png`)], 'no stale render is left behind');
 });
 
-test('case/steps.scad draws every step from the case model and case/render_steps.sh renders them with manifold', () => {
-  const scad = readFileSync(repoPath('case/steps.scad'), 'utf8');
+function v2Steps() {
+  const readme = readFileSync(repoPath('v2/case/README.md'), 'utf8');
+  const m = /^## Assembly steps\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(readme);
+  assert.ok(m, 'v2/case/README.md has an Assembly steps section');
+  const count = /(\d+) steps in three stages/.exec(m[1]);
+  assert.ok(count, 'the section states the number of steps');
+  const rows = [...m[1].matchAll(/^\| (\d+) \| ([^|]+?) \| ([^|]+?) \|$/gm)].map((r) => Number(r[1]));
+  assert.deepEqual(rows, Array.from({ length: rows.length }, (_, i) => i + 1));
+  assert.equal(rows.length, Number(count[1]));
+  return rows.length;
+}
+
+function pngSize(file) {
+  const bytes = readFileSync(file);
+  assert.deepEqual([...bytes.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], `${path.basename(file)} is not a PNG`);
+  return [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
+}
+
+test('version 2 renders: one PNG per README step, 1000x750 and 20-250 kB, a 1200x900 hero, and nothing else in renders/v2', () => {
+  const n = v2Steps();
+  const dir = path.join(siteDir, 'assets', 'renders', 'v2');
+  for (let k = 1; k <= n; k += 1) {
+    const file = path.join(dir, `assembly-${pad(k)}.png`);
+    assert.ok(existsSync(file), `v2/assembly-${pad(k)}.png is missing`);
+    assert.deepEqual(pngSize(file), [1000, 750], `v2/assembly-${pad(k)}.png size`);
+    assert.ok(statSync(file).size > 20 * 1024, `v2/assembly-${pad(k)}.png is smaller than 20 kB`);
+    assert.ok(statSync(file).size < 250 * 1024, `v2/assembly-${pad(k)}.png is 250 kB or more`);
+  }
+  assert.deepEqual(pngSize(path.join(dir, 'hero.png')), [1200, 900], 'v2/hero.png size');
+  const files = readdirSync(dir).sort();
+  assert.deepEqual(files, [...Array.from({ length: n }, (_, i) => `assembly-${pad(i + 1)}.png`), 'hero.png']);
+  for (let k = 1; k < n; k += 1) {
+    assert.notDeepEqual(readFileSync(path.join(dir, `assembly-${pad(k)}.png`)), readFileSync(path.join(dir, `assembly-${pad(k + 1)}.png`)), `v2 renders ${k} and ${k + 1} are identical`);
+  }
+});
+
+test('v2/case/render_steps.sh renders one camera per step into renders/v2 and the v1 script cannot clean that folder', () => {
+  const n = v2Steps();
+  const script = readFileSync(repoPath('v2/case/render_steps.sh'), 'utf8');
+  assert.match(script, /^#!\/usr\/bin\/env bash/);
+  assert.match(script, /--backend=manifold/);
+  assert.match(script, /--render/);
+  assert.match(script, /--colorscheme=Tomorrow/);
+  assert.match(script, /--imgsize=1000,750/);
+  assert.match(script, /OUT="\.\.\/\.\.\/site\/assets\/renders\/v2"/);
+  assert.match(script, /rm -f "\$OUT"\/assembly-\*\.png/);
+  const cameras = [...script.matchAll(/^\s+"(-?[\d.]+(?:,-?[\d.]+){6})"$/gm)].map((m) => m[1]);
+  assert.equal(cameras.length, n, 'one camera per step');
+  const v1 = readFileSync(repoPath('v1/case/render_steps.sh'), 'utf8');
+  assert.match(v1, /OUT="\.\.\/\.\.\/site\/assets\/renders"/);
+  assert.doesNotMatch(v1, /rm -r|rm -rf|\*\*|find /);
+});
+
+test('v1/case/steps.scad draws every step from the case model and v1/case/render_steps.sh renders them with manifold', () => {
+  const scad = readFileSync(repoPath('v1/case/steps.scad'), 'utf8');
   assert.match(scad, /include <voice-case\.scad>/);
   assert.match(scad, /^part = "params";/m);
   assert.match(scad, /^step = \d+;/m);
@@ -106,7 +162,7 @@ test('case/steps.scad draws every step from the case model and case/render_steps
   for (let k = 1; k <= N; k += 1) assert.match(scad, new RegExp(`module scene_${k}\\(`), `scene_${k}`);
   assert.doesNotMatch(scad, new RegExp(`module scene_${N + 1}\\(`));
   assert.doesNotMatch(scad, /\/\/|\/\*/, 'no comments in code');
-  const script = readFileSync(repoPath('case/render_steps.sh'), 'utf8');
+  const script = readFileSync(repoPath('v1/case/render_steps.sh'), 'utf8');
   assert.match(script, /^#!\/usr\/bin\/env bash/);
   assert.match(script, /--backend=manifold/);
   assert.match(script, /--render/);

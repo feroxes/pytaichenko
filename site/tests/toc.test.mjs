@@ -104,12 +104,30 @@ function makeToc({ wide = false, hidden = [], intersection = true } = {}) {
   }
   window.window = window;
   vm.runInNewContext(readSite('assets/toc.js'), { window, document }, { filename: 'toc.js' });
-  return { box, links, media, sections, observers };
+  return { box, links, media, sections, observers, listeners };
 }
 
 test('the contents hides the entry of a hidden section', () => {
   const { links } = makeToc({ hidden: ['support'] });
   assert.deepEqual(links.map((l) => l.parentNode.hidden), [false, false, false, true]);
+});
+
+test('the contents follows a version change: entries of sections hidden for the version disappear and come back', () => {
+  const { links, sections, observers, listeners } = makeToc({ hidden: ['support'] });
+  assert.equal(typeof listeners['pytaichenko:version'], 'function');
+  sections.parts.hidden = true;
+  listeners['pytaichenko:version']({ detail: { version: '2' } });
+  assert.deepEqual(links.map((l) => l.parentNode.hidden), [false, false, true, true]);
+  assert.deepEqual(observers[observers.length - 1].targets.map((t) => t.id), ['about', 'can']);
+  const report = (entries) => observers[observers.length - 1].callback(entries.map(([id, isIntersecting]) => ({ target: sections[id], isIntersecting })));
+  report([['can', true]]);
+  assert.deepEqual(links.map((l) => l.attrs['aria-current'] ?? null), [null, 'location', null, null]);
+  sections.parts.hidden = false;
+  listeners['pytaichenko:version']({ detail: { version: '1' } });
+  assert.deepEqual(links.map((l) => l.parentNode.hidden), [false, false, false, true]);
+  assert.deepEqual(observers[observers.length - 1].targets.map((t) => t.id), ['about', 'can', 'parts']);
+  links[2].handlers.click.forEach((fn) => fn({}));
+  assert.equal(links[2].handlers.click.length, 1);
 });
 
 test('on a narrow screen the contents starts closed and closes after a jump; on a wide one it stays open', () => {

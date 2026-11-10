@@ -24,24 +24,33 @@
     return found && LANGS.indexOf(found[1]) >= 0 ? found[1] : null;
   }
 
-  function urlWithLang(href, lang) {
+  function urlWithParams(href, values) {
+    var names = Object.keys(values);
     var cut = href.indexOf('#');
     var hash = cut >= 0 ? href.slice(cut) : '';
     var rest = cut >= 0 ? href.slice(0, cut) : href;
     var q = rest.indexOf('?');
     var base = q >= 0 ? rest.slice(0, q) : rest;
     var params = (q >= 0 ? rest.slice(q + 1).split('&') : []).filter(function (part) {
-      return part && part.split('=')[0] !== 'lang';
+      return part && names.indexOf(part.split('=')[0]) < 0;
     });
-    params.push('lang=' + lang);
+    names.forEach(function (name) {
+      params.push(name + '=' + encodeURIComponent(values[name]));
+    });
     return base + '?' + params.join('&') + hash;
+  }
+
+  function urlWithLang(href, lang) {
+    return urlWithParams(href, { lang: lang });
   }
 
   function markUrl(lang) {
     var history = window.history;
     if (!window.location || !history || typeof history.replaceState !== 'function') return;
+    var values = { lang: lang };
+    if (P.VERSIONS && P.VERSIONS.indexOf(P.version) >= 0) values.v = P.version;
     try {
-      history.replaceState(history.state, '', urlWithLang(window.location.href, lang));
+      history.replaceState(history.state, '', urlWithParams(window.location.href, values));
     } catch (e) {}
   }
 
@@ -121,6 +130,7 @@
 
   P.pickLang = pickLang;
   P.langFromSearch = langFromSearch;
+  P.urlWithParams = urlWithParams;
   P.urlWithLang = urlWithLang;
   P.applyText = applyText;
   P.setLang = setLang;

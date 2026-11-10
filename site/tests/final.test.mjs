@@ -5,6 +5,7 @@ import path from 'node:path';
 import { loadScripts, makeElement, makeEnv, parseFragment, readPage, siteDir } from './helpers.mjs';
 
 const SCRIPTS = ['assets/text.js', 'assets/config.js', 'assets/i18n.js'];
+const FOOTER_SCRIPTS = ['assets/text.js', 'assets/releases.js', 'assets/config.js', 'assets/version.js', 'assets/i18n.js'];
 
 const LESSONS = [
   {
@@ -50,7 +51,7 @@ function sectionOf(page, id) {
 }
 
 function bodyOf(page, id) {
-  const m = /<div class="section-body">([\s\S]*?)<\/div>\s*$/.exec(sectionOf(page, id).trim());
+  const m = /<div class="section-body" data-for-v="1">([\s\S]*?)<\/div>\s*$/.exec(sectionOf(page, id).trim());
   assert.ok(m, `section ${id} needs a section-body`);
   return m[1];
 }
@@ -132,14 +133,14 @@ function footerLine(fragment) {
   return shown(fragment).replace(/\s+/g, ' ').trim();
 }
 
-test('the footer names both licenses and the version, links them into the repository and reads right in both languages', () => {
+test('the footer names both licenses and the release of the shown version, links them into the repository and reads right in both languages', () => {
   const page = readPage();
   const footer = /<footer\b[\s\S]*?<\/footer>/.exec(page)[0];
   assert.doesNotMatch(footer, /license-placeholder|footer\.license/);
   assert.doesNotMatch(readFileSync(path.join(siteDir, 'assets', 'style.css'), 'utf8'), /license-placeholder/);
   const fragment = parseFragment(footer);
   const env = makeEnv({ children: [fragment], languages: ['uk-UA'] });
-  const P = loadScripts(SCRIPTS, env);
+  const P = loadScripts(FOOTER_SCRIPTS, env);
   const links = fragment.querySelectorAll('[data-repo-path]');
   assert.deepEqual(links.map((a) => a.getAttribute('href')), [
     'https://github.com/feroxes/pytaichenko/blob/main/LICENSE',
@@ -150,17 +151,21 @@ test('the footer names both licenses and the version, links them into the reposi
     assert.equal(a.getAttribute('target'), '_blank');
     assert.match(a.getAttribute('rel'), /\bnoopener\b/);
   }
+  assert.equal(P.version, '2');
+  assert.equal(footerLine(fragment), 'Код — MIT, корпус і тексти — CC BY-SA 4.0 · Версія 2.0.0');
+  P.setVersion('1');
   assert.equal(footerLine(fragment), 'Код — MIT, корпус і тексти — CC BY-SA 4.0 · Версія 1.0.0');
   P.setLang('en');
   assert.equal(footerLine(fragment), 'Code — MIT, case and texts — CC BY-SA 4.0 · Version 1.0.0');
-  P.CONFIG.version = '1.2.3';
+  P.RELEASES['1'].version = '1.2.3';
   P.applyConfig(env.document);
   assert.match(footerLine(fragment), /· Version 1\.2\.3$/);
-  assert.equal(/<span data-version>([^<]*)<\/span>/.exec(footer)[1], loadScripts(['assets/config.js']).CONFIG.version, 'the page shows the right version before scripts run');
+  assert.equal(/<span data-version>([^<]*)<\/span>/.exec(footer)[1], '', 'before scripts run the page names no release');
+  assert.match(footer, /<span data-version-box hidden>·\s*<a data-repo-path="\/releases"/, 'before scripts run the release link is hidden');
   for (const file of ['LICENSE', 'LICENSE-hardware']) assert.ok(existsSync(path.join(path.resolve(siteDir, '..'), file)), `${file} is missing`);
 });
 
-test('the release workflow publishes the site/ folder to Pages, built from the tag and its release', () => {
+test('the release workflow publishes the site/ folder to Pages, built from main and the newest release of each line', () => {
   const file = path.join(path.resolve(siteDir, '..'), '.github', 'workflows', 'release.yml');
   assert.ok(existsSync(file), '.github/workflows/release.yml is missing at the repo root');
   assert.ok(!existsSync(path.join(path.dirname(file), 'pages.yml')), 'Pages are published only from releases');
@@ -175,6 +180,7 @@ test('the release workflow publishes the site/ folder to Pages, built from the t
   assert.match(yml, /^  push:\n    tags: \["v\*\.\*\.\*"\]$/m);
   assert.match(yml, /workflow_dispatch:\s*\n\s*inputs:\s*\n\s*tag:/);
   assert.ok(yml.indexOf('rm -rf site/tests') < yml.indexOf('upload-pages-artifact'), 'the test sources stay out of the published site');
+  assert.ok(yml.indexOf('ref: main') < yml.indexOf('rm -rf site/tests'), 'the published site is the one on main');
   assert.doesNotMatch(yml, /path:\s*(\.|\/|\.\/)\s*$/m, 'only the site/ folder is published');
   assert.doesNotMatch(yml, /secrets\./);
 });
@@ -240,4 +246,81 @@ test('the page has a small favicon file linked from <head>, an svg with nothing 
   assert.doesNotMatch(svg.replace('http://www.w3.org/2000/svg', ''), /https?:|<script|<image|href=|<!--/);
   assert.ok(svg.length < 1024, 'small');
   assert.doesNotMatch(head, /data:image/, 'not inlined');
+});
+
+const README_GUIDE = 'https://feroxes.github.io/pytaichenko/';
+const README_PAGES = {
+  2: ['parts', 'print', 'solder', 'assembly', 'firmware', 'trouble'],
+  1: ['parts', 'print', 'solder', 'assembly', 'firmware', 'server', 'trouble'],
+};
+
+test('the root READMEs describe both versions and link each one to its own pages of the guide', () => {
+  for (const [file, lang] of [['README.md', 'en'], ['README.uk.md', 'uk']]) {
+    const text = readRepo(file);
+    const intro = text.split('\n## ', 1)[0];
+    for (const v of ['2', '1']) assert.ok(intro.includes(`${README_GUIDE}?lang=${lang}&v=${v}"`) || intro.includes(`${README_GUIDE}?lang=${lang}&v=${v})`), `${file} intro links to version ${v}`);
+    assert.ok(intro.indexOf('&v=2') < intro.indexOf('&v=1'), `${file} puts version 2 first`);
+    assert.match(intro, /ESP32-S3/, `${file} names the version 2 board`);
+    assert.match(intro, /Docker/, `${file} says version 1 needs Docker`);
+    for (const [v, anchors] of Object.entries(README_PAGES)) {
+      for (const anchor of anchors) assert.ok(text.includes(`${README_GUIDE}?lang=${lang}&v=${v}#${anchor}`), `${file} links version ${v} #${anchor}`);
+    }
+    const links = [...text.matchAll(/https:\/\/feroxes\.github\.io\/pytaichenko\/[^)"\s]*/g)].map((m) => m[0]);
+    assert.ok(links.length > 0);
+    for (const link of links) assert.match(link, new RegExp(`^https://feroxes\\.github\\.io/pytaichenko/\\?lang=${lang}&v=[12](#[a-z]+)?$`), `${file}: ${link}`);
+    assert.ok(!text.includes('&v=2#server'), `${file}: version 2 has no server`);
+    assert.match(text, /releases\/latest/, `${file} keeps the latest release badge`);
+    const releases = text.split(lang === 'en' ? '\n## Versions and releases\n' : '\n## Версії й випуски\n')[1].split('\n## ')[0];
+    for (const name of ['`v1.x.y`', '`v2.x.y`', '`pytaichenko-1.Y.Z.factory.bin`', '`pytaichenko-1.Y.Z-stl.zip`', '`pytaichenko-2.Y.Z.factory.bin`', '`pytaichenko-2.Y.Z.ota.bin`', '`pytaichenko-2.Y.Z-stl.zip`']) {
+      assert.ok(releases.includes(name), `${file} releases name ${name}`);
+    }
+    assert.match(releases, lang === 'en' ? /Latest[^\n]*version 2/ : /Останній випуск[^\n]*версії 2/, `${file} says Latest shows version 2`);
+    const license = text.split(lang === 'en' ? '\n## License\n' : '\n## Ліцензія\n')[1].split('\n## ')[0];
+    for (const p of ['`v1/case/*.scad`', '`v2/case/*.scad`', '`v1/case/stl`', '`v2/case/stl`', '`site/assets/renders`']) assert.ok(license.includes(p), `${file} license covers ${p}`);
+  }
+});
+
+function lockedComponents() {
+  const lock = readRepo('v2/firmware/dependencies.lock');
+  const block = lock.split('\ndirect_dependencies:')[0].replace(/^dependencies:\n/, '');
+  const out = [];
+  let name = null;
+  for (const line of block.split('\n')) {
+    const key = /^ {2}([\w./-]+):$/.exec(line);
+    if (key) name = key[1];
+    const version = /^ {4}version: (\S+)$/.exec(line);
+    if (version && name) out.push([name, version[1]]);
+  }
+  return out;
+}
+
+test('THIRD_PARTY.md names every component of the version 2 firmware with the version in dependencies.lock and its license', () => {
+  const notes = readRepo('THIRD_PARTY.md');
+  const section = notes.split('\n## Version 2 firmware\n')[1];
+  assert.ok(section, 'a Version 2 firmware section');
+  const components = lockedComponents();
+  assert.ok(components.length >= 10, 'every locked component is read');
+  for (const [name, version] of components) {
+    const shown = name === 'idf' ? 'ESP-IDF' : name;
+    const row = section.split('\n').find((line) => line.startsWith('|') && line.includes(name === 'idf' ? '| ESP-IDF |' : `\`${shown}\``));
+    assert.ok(row, `${shown} has a row`);
+    assert.ok(row.includes(version), `${shown} ${version}`);
+    assert.match(row, /Apache-2\.0|MIT|BSD/, `${shown} has a license`);
+  }
+  const commit = /^COMMIT=([0-9a-f]{40})$/m.exec(readRepo('v2/firmware/models/fetch.sh'))[1];
+  assert.ok(section.includes(commit), 'the models commit');
+  assert.ok(section.includes('v2/firmware/models/LICENSE'));
+  for (const word of ['ESPRESSIF MIT License', 'TensorFlow Lite Micro', 'kissfft', 'cJSON', 'Mbed TLS', 'Unity', 'libsoxr', 'LGPL-2.1']) assert.ok(section.includes(word), word);
+  const webTools = /unpkg\.com\/esp-web-tools@([\d.]+)\//.exec(readPage())[1];
+  assert.ok(notes.includes(`ESP Web Tools`) && notes.includes(webTools), `ESP Web Tools ${webTools}`);
+  assert.doesNotMatch(section, /Open question/);
+  assert.match(section, /not in the repository/);
+  assert.match(section, /`say`/);
+  assert.ok(section.includes('v2/firmware/tests/host/golden/'), 'the path of the clips');
+  assert.ok(notes.includes('\n## ESPHome\n') && notes.includes('`v1/firmware/packages/wake_word.yaml`'), 'the version 1 sections stay');
+});
+
+test('LICENSE-hardware covers the version 2 case and renders', () => {
+  const text = readRepo('LICENSE-hardware');
+  for (const p of ['v1/case/*.scad', 'v1/case/stl/*', 'v2/case/*.scad', 'v2/case/stl/*', 'site/assets/renders/*', 'site/assets/renders/v2/*']) assert.ok(text.includes(p), p);
 });

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { loadScripts, makeElement, makeEnv, readPage, readSite, siteDir } from './helpers.mjs';
 
-const SCRIPTS = ['assets/text.js', 'assets/config.js', 'assets/i18n.js', 'assets/data.js'];
+const SCRIPTS = ['assets/text.js', 'assets/releases.js', 'assets/config.js', 'assets/i18n.js', 'assets/data.js'];
 
 const REPO_URL = 'https://github.com/owner/pytaichenko';
 
@@ -28,6 +28,7 @@ const GROUPS = [
 ];
 const CLEAR = /прозор|clear|transparent|translucent/i;
 const OWNER_REPO = 'https://github.com/feroxes/pytaichenko';
+const V1_RAW = `${OWNER_REPO}/raw/v1.0.0/case/stl`;
 
 function readRepo(relPath) {
   return readFileSync(path.join(path.resolve(siteDir, '..'), relPath), 'utf8');
@@ -38,7 +39,7 @@ function unescapeHtml(text) {
 }
 
 function boot({ languages = ['uk-UA'], stored = null, readyState = 'complete' } = {}) {
-  const tbody = makeElement({ 'data-print': '' });
+  const tbody = makeElement({ 'data-print': '1' });
   tbody.innerHTML = '';
   const env = makeEnv({ children: [tbody], languages, stored, readyState });
   const P = loadScripts(SCRIPTS, env);
@@ -82,9 +83,9 @@ test('print rows are the expected files and counts, and none is optional', () =>
   assert.deepEqual(Array.from(P.PRINT.filter((r) => r.optional), (r) => r.file), []);
 });
 
-test('print files are exactly the names case/build.sh writes, and a _xN suffix is the number of copies', () => {
+test('print files are exactly the names v1/case/build.sh writes, and a _xN suffix is the number of copies', () => {
   const { P } = boot();
-  const line = readRepo('case/build.sh').split('\n').find((l) => l.startsWith('PARTS='));
+  const line = readRepo('v1/case/build.sh').split('\n').find((l) => l.startsWith('PARTS='));
   const built = line.split('(')[1].replace(/\)\s*$/, '').split(/\s+/).map((e) => `${e.split(':')[1]}.stl`);
   assert.deepEqual([...built].sort(), Array.from(P.PRINT, (r) => r.file).sort());
   for (const r of P.PRINT) {
@@ -215,44 +216,48 @@ test('the settings are grouped: the common line over the cards, then PETG 0.16 m
   }
 });
 
-test('CONFIG points at the owner repository, fileUrl is null while repoUrl is empty and builds the raw main url once it is set', () => {
+test('CONFIG points at the owner repository, fileUrl is null while repoUrl is empty and builds the raw url of the given ref once it is set', () => {
   const { P } = boot();
   assert.equal(P.CONFIG.repoUrl, OWNER_REPO);
-  assert.equal(P.fileUrl('case/stl/PETG-black_body.stl'), `${OWNER_REPO}/raw/main/case/stl/PETG-black_body.stl`);
+  assert.equal(P.fileUrl('case/stl/PETG-black_body.stl', 'v1.0.0'), `${V1_RAW}/PETG-black_body.stl`);
   P.CONFIG.repoUrl = '';
-  assert.equal(P.fileUrl('case/stl/PETG-black_body.stl'), null);
-  assert.equal(P.fileUrl(''), null);
-  assert.equal(P.fileUrl(undefined), null);
+  assert.equal(P.fileUrl('case/stl/PETG-black_body.stl', 'v1.0.0'), null);
+  assert.equal(P.fileUrl('', 'v1.0.0'), null);
+  assert.equal(P.fileUrl(undefined, 'v1.0.0'), null);
   P.CONFIG.repoUrl = REPO_URL;
-  assert.equal(P.fileUrl('case/stl/PETG-black_body.stl'), `${REPO_URL}/raw/main/case/stl/PETG-black_body.stl`);
-  assert.equal(P.fileUrl('/case/stl/x.stl'), `${REPO_URL}/raw/main/case/stl/x.stl`);
+  assert.equal(P.fileUrl('v1/case/stl/PETG-black_body.stl', 'v1.0.1'), `${REPO_URL}/raw/v1.0.1/v1/case/stl/PETG-black_body.stl`);
+  assert.equal(P.fileUrl('/v1/case/stl/x.stl', 'v1.0.1'), `${REPO_URL}/raw/v1.0.1/v1/case/stl/x.stl`);
   P.CONFIG.repoUrl = `${REPO_URL}/`;
-  assert.equal(P.fileUrl('case/stl/x.stl'), `${REPO_URL}/raw/main/case/stl/x.stl`);
+  assert.equal(P.fileUrl('v1/case/stl/x.stl', 'main'), `${REPO_URL}/raw/main/v1/case/stl/x.stl`);
   P.CONFIG.repoUrl = `${REPO_URL}///`;
-  assert.equal(P.fileUrl('case/stl/x.stl'), `${REPO_URL}/raw/main/case/stl/x.stl`);
+  assert.equal(P.fileUrl('v1/case/stl/x.stl', 'v2.0.0'), `${REPO_URL}/raw/v2.0.0/v1/case/stl/x.stl`);
 });
 
-test('fileUrl never returns a url from an unusable repoUrl or path', () => {
+test('fileUrl never returns a url from an unusable repoUrl, path or ref', () => {
   const { P } = boot();
   for (const bad of ['', '   ', '#', 'github.com/o/r', 'http://github.com/o/r', 'javascript:alert(1)', 'https://', 'https://a b', 'https://a"b', null, undefined, 5]) {
     P.CONFIG.repoUrl = bad;
-    assert.equal(P.fileUrl('case/stl/x.stl'), null, `repoUrl ${String(bad)}`);
+    assert.equal(P.fileUrl('v1/case/stl/x.stl', 'v1.0.0'), null, `repoUrl ${String(bad)}`);
   }
   P.CONFIG.repoUrl = REPO_URL;
-  for (const bad of ['../x.stl', 'case/../x.stl', 'case/./x.stl', 'case//x.stl', 'case/stl/a"b.stl', "case/stl/a'b.stl", 'case/stl/a<b.stl', 'case/stl/a\\b.stl', 'case/stl/a\nb.stl', '', '///', null, 5]) {
-    assert.equal(P.fileUrl(bad), null, `path ${String(bad)}`);
+  for (const bad of ['../x.stl', 'case/../x.stl', 'case/./x.stl', 'case//x.stl', 'v1/case/stl/a"b.stl', "v1/case/stl/a'b.stl", 'v1/case/stl/a<b.stl', 'v1/case/stl/a\\b.stl', 'v1/case/stl/a\nb.stl', '', '///', null, 5]) {
+    assert.equal(P.fileUrl(bad, 'v1.0.0'), null, `path ${String(bad)}`);
+  }
+  for (const bad of ['', '..', '.', 'a//b', 'v1"0', 'v1<0', 'v1\n0', '///', null, undefined, 5]) {
+    assert.equal(P.fileUrl('v1/case/stl/x.stl', bad), null, `ref ${String(bad)}`);
   }
 });
 
 test('fileUrl encodes each path segment, so names with spaces become links instead of being refused', () => {
   const { P } = boot();
   P.CONFIG.repoUrl = REPO_URL;
-  assert.equal(P.fileUrl('case/stl/PETG black tuned.3mf'), `${REPO_URL}/raw/main/case/stl/PETG%20black%20tuned.3mf`);
-  assert.equal(P.fileUrl('case/stl/a b.stl'), `${REPO_URL}/raw/main/case/stl/a%20b.stl`);
-  assert.equal(P.fileUrl('case/stl/a#b?.stl'), `${REPO_URL}/raw/main/case/stl/a%23b%3F.stl`);
-  assert.equal(P.fileUrl('case/stl/PETG-black_body.stl'), `${REPO_URL}/raw/main/case/stl/PETG-black_body.stl`, 'plain names stay as they are');
+  assert.equal(P.fileUrl('v1/case/stl/PETG black tuned.3mf', 'v1.0.0'), `${REPO_URL}/raw/v1.0.0/v1/case/stl/PETG%20black%20tuned.3mf`);
+  assert.equal(P.fileUrl('v1/case/stl/a b.stl', 'v1.0.0'), `${REPO_URL}/raw/v1.0.0/v1/case/stl/a%20b.stl`);
+  assert.equal(P.fileUrl('v1/case/stl/a#b?.stl', 'v1.0.0'), `${REPO_URL}/raw/v1.0.0/v1/case/stl/a%23b%3F.stl`);
+  assert.equal(P.fileUrl('v1/case/stl/x.stl', 'a#b'), `${REPO_URL}/raw/a%23b/v1/case/stl/x.stl`);
+  assert.equal(P.fileUrl('v1/case/stl/PETG-black_body.stl', 'v1.0.0'), `${REPO_URL}/raw/v1.0.0/v1/case/stl/PETG-black_body.stl`, 'plain names stay as they are');
   P.CONFIG.repoUrl = 'http://github.com/o/r';
-  assert.equal(P.fileUrl('case/stl/a b.stl'), null, 'the base still has to be https');
+  assert.equal(P.fileUrl('v1/case/stl/a b.stl', 'v1.0.0'), null, 'the base still has to be https');
 });
 
 test('without a usable repoUrl the part names stay plain text, never a dead link', () => {
@@ -278,8 +283,8 @@ test('every part name is the link to its own STL file in the repository, opening
       const r = P.PRINT.find((x) => x.id === order[i]);
       const anchors = anchorsIn(row.cells[0].html);
       assert.equal(anchors.length, 1, r.file);
-      assert.equal(attrOf(anchors[0], 'href'), `${OWNER_REPO}/raw/main/case/stl/${r.file}`);
-      assert.equal(attrOf(anchors[0], 'href'), P.fileUrl(`case/stl/${r.file}`));
+      assert.equal(attrOf(anchors[0], 'href'), `${V1_RAW}/${r.file}`);
+      assert.equal(attrOf(anchors[0], 'href'), P.fileUrl(P.RELEASES['1'].stlDir + r.file, P.RELEASES['1'].tag));
       assert.equal(attrOf(anchors[0], 'target'), '_blank');
       assert.match(attrOf(anchors[0], 'rel'), /\bnoopener\b/);
       const name = P.TEXT[lang][`print.name.${r.id}`];
@@ -301,7 +306,22 @@ test('the links follow repoUrl when the table is drawn again', () => {
   P.CONFIG.repoUrl = REPO_URL;
   P.setLang('uk');
   assert.equal(anchorsIn(tbody.innerHTML).length, ROWS.length);
-  assert.ok(tbody.innerHTML.includes(`${REPO_URL}/raw/main/case/stl/PETG-black_body.stl`));
+  assert.ok(tbody.innerHTML.includes(`${REPO_URL}/raw/v1.0.0/case/stl/PETG-black_body.stl`));
+});
+
+test('the links point at the newest release of the line, and follow RELEASES when the table is drawn again', () => {
+  const { tbody, P } = boot();
+  assert.ok(tbody.innerHTML.includes(`${V1_RAW}/PETG-black_body.stl`));
+  assert.doesNotMatch(tbody.innerHTML, /\/raw\/main\//);
+  P.RELEASES['1'] = { version: '1.0.1', tag: 'v1.0.1', stlDir: 'v1/case/stl/' };
+  P.setLang('en');
+  const hrefs = anchorsIn(tbody.innerHTML).map((a) => attrOf(a, 'href'));
+  assert.equal(hrefs.length, ROWS.length);
+  for (const href of hrefs) assert.match(href, /^https:\/\/github\.com\/feroxes\/pytaichenko\/raw\/v1\.0\.1\/v1\/case\/stl\/[\w.-]+\.stl$/);
+  delete P.RELEASES['1'];
+  P.setLang('uk');
+  assert.equal(anchorsIn(tbody.innerHTML).length, 0, 'without a release the names stay plain text');
+  assert.equal(rowsOf(tbody.innerHTML).length, ROWS.length);
 });
 
 test('switching the language re-renders the print table in place without doubling rows', () => {
@@ -351,7 +371,7 @@ test('the print section has the intro, the common settings, the archive link, th
   const order = ['print.intro', 'print.common', 'print.archive', 'data-print', 'print.estimate', 'print.how.title'].map((key) => html.indexOf(key));
   assert.ok(order.every((at) => at > 0), JSON.stringify(order));
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'intro, common settings, archive, cards, estimate, how-to');
-  assert.match(html, /<div class="print-groups" data-print><\/div>/);
+  assert.match(html, /<div class="print-groups" data-print="1"><\/div>/);
   assert.doesNotMatch(html, /<table\b|print-prototype|print\.prototype|print\.caption/);
   const { TEXT } = loadScripts(['assets/text.js']);
   const keys = [...html.matchAll(/data-i18n="([^"]+)"/g)].map((m) => m[1]);
@@ -373,31 +393,40 @@ test('a note right under the archive link says the ZIP exists only on the publis
   assert.ok(note < html.indexOf('data-print'), 'and sits above the cards');
   assert.match(html, /<p class="print-archive-note" data-i18n="print\.archive_note">/);
   const { TEXT } = loadScripts(['assets/text.js']);
-  assert.match(TEXT.uk['print.archive_note'], /^Архів збирається під час публікації сайту, тож у клонованому репозиторії його немає: там ці самі файли лежать у папці case\/stl\.$/);
-  assert.match(TEXT.en['print.archive_note'], /^The archive is built when the site is published, so a cloned repository does not have it: there the same files are in the case\/stl folder\.$/);
+  assert.match(TEXT.uk['print.archive_note'], /^Архів збирається під час публікації сайту, тож у клонованому репозиторії його немає: там ці самі файли лежать у папці v1\/case\/stl\.$/);
+  assert.match(TEXT.en['print.archive_note'], /^The archive is built when the site is published, so a cloned repository does not have it: there the same files are in the v1\/case\/stl folder\.$/);
   for (const lang of ['uk', 'en']) assert.doesNotMatch(TEXT[lang]['print.archive_note'], /[Яя]кщо ви відкрили|If you opened/, `${lang}: the note reads right on the published site too`);
   assert.equal(unescapeHtml(new RegExp('data-i18n="print\\.archive_note">([^<]*)<').exec(html)[1]), TEXT.uk['print.archive_note']);
 });
 
-test('one archive link with every STL sits above the cards: a relative files/pytaichenko-stl.zip that the release builds and the site copies', () => {
+test('each version has one archive link with every STL above its cards: a relative files/v<N>/pytaichenko-stl.zip that the release builds and the site copies', () => {
   const page = readPage();
   const html = /<section id="print"[\s\S]*?<\/section>/.exec(page)[0];
+  const blocks = [...html.matchAll(/<div class="section-body" data-for-v="(\d)">/g)].map((m) => [m.index, m[1]]);
+  const blockOf = (at) => blocks.filter(([i]) => i < at).pop()[1];
   const links = [...html.matchAll(/<a\b([^>]*)>([^<]*)<\/a>/g)];
-  assert.equal(links.length, 1);
-  assert.match(links[0][1], /\bhref="files\/pytaichenko-stl\.zip"/);
-  assert.match(links[0][1], /\bdownload\b/);
-  assert.match(links[0][1], /\bdata-i18n="print\.archive"/);
+  assert.deepEqual(links.map((m) => blockOf(m.index)), ['1', '2']);
   const { TEXT } = loadScripts(['assets/text.js']);
-  assert.equal(links[0][2], TEXT.uk['print.archive']);
+  links.forEach((link, i) => {
+    const v = String(i + 1);
+    assert.match(link[1], new RegExp(`\\bhref="files/v${v}/pytaichenko-stl\\.zip"`));
+    assert.match(link[1], /\bdownload\b/);
+    const key = v === '1' ? 'print.archive' : `v${v}.print.archive`;
+    assert.match(link[1], new RegExp(`\\bdata-i18n="${key.replace(/\./g, '\\.')}"`));
+    assert.equal(link[2], TEXT.uk[key]);
+  });
+  assert.ok(links[0].index < html.indexOf('data-print="1"'), 'the version 1 archive sits above its cards');
   assert.match(TEXT.uk['print.archive'], /архів/);
   assert.match(TEXT.en['print.archive'], /archive/);
   const yml = readRepo('.github/workflows/release.yml');
-  const zip = yml.indexOf('zip -j "dist/pytaichenko-$VERSION-stl.zip" case/stl/*.stl LICENSE-hardware');
-  assert.ok(zip > 0, 'the release packs every STL with the license notice');
+  const zip = yml.indexOf('zip -j "dist/pytaichenko-$VERSION-stl.zip" "v$LINE/case/stl/"*.stl LICENSE-hardware');
+  assert.ok(zip > 0, 'the release packs every STL of its line with the license notice');
   assert.ok(zip < yml.indexOf('gh release create'), 'the archive is packed before the release is created');
-  const copy = yml.indexOf('cp "dist/pytaichenko-$VERSION-stl.zip" site/files/pytaichenko-stl.zip');
-  assert.ok(copy > yml.indexOf('gh release download'), 'the site copies the archive of the release');
-  assert.ok(copy < yml.indexOf('upload-pages-artifact'), 'the archive is in place before the upload');
+  const script = readRepo('.github/scripts/site-releases.sh');
+  const copy = script.indexOf('cp "$work/v$line/pytaichenko-$version-stl.zip" "$root/site/files/v$line/pytaichenko-stl.zip"');
+  assert.ok(copy > script.indexOf('gh release download'), 'the site copies the archive of each line\'s release');
+  assert.match(script, /mkdir -p "\$root\/site\/firmware\/v\$line" "\$root\/site\/files\/v\$line"\n/);
+  assert.ok(yml.indexOf('bash .github/scripts/site-releases.sh') < yml.indexOf('upload-pages-artifact'), 'the archives are in place before the upload');
   assert.match(readRepo('.gitignore'), /^site\/files\/$/m);
 });
 

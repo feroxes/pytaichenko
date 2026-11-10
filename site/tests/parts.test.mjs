@@ -27,7 +27,7 @@ const PART_ROWS = [
 
 const LINKED_IDS = ['devkit', 'mic', 'amp', 'speaker', 'filament', 'mosfet', 'res47', 'res62k', 'cap', 'button', 'inserts', 'screws'];
 
-const TOOL_IDS = ['iron', 'solder', 'insert_tip', 'multimeter', 'cutters', 'glue_gun', 'feet_glue', 'screwdriver', 'flat_screwdriver', 'battery', 'marker', 'tape'];
+const TOOL_IDS = ['printer', 'iron', 'solder', 'insert_tip', 'multimeter', 'cutters', 'glue_gun', 'feet_glue', 'screwdriver', 'flat_screwdriver', 'battery', 'marker', 'tape'];
 
 const GONE_TOOLS = ['stripper', 'heat_source', 'electrical_tape', 'hex_key'];
 
@@ -60,12 +60,12 @@ function unescapeHtml(text) {
 }
 
 function boot({ languages = ['uk-UA'], stored = null, readyState = 'complete', extra = [] } = {}) {
-  const tbody = makeElement({ 'data-parts': '' });
+  const tbody = makeElement({ 'data-parts': '1' });
   tbody.innerHTML = '';
-  const list = makeElement({ 'data-tools': '' });
+  const list = makeElement({ 'data-tools': '1' });
   list.innerHTML = '';
-  const cost = makeElement({ 'data-cost': '' }, 'Уточнюється');
-  const note = makeElement({ 'data-parts-footnote': '' }, '');
+  const cost = makeElement({ 'data-cost': '1' }, 'Уточнюється');
+  const note = makeElement({ 'data-parts-footnote': '1' }, '');
   const env = makeEnv({ children: [tbody, list, cost, note, ...extra], languages, stored, readyState });
   const P = loadScripts(SCRIPTS, env);
   return { tbody, list, cost, note, env, P };
@@ -98,16 +98,17 @@ test('data.js still loads after text.js and i18n.js and has no fetch or modules'
   assert.doesNotMatch(code, /^\s*\/\/|\/\*/m, 'data.js has code comments');
 });
 
-test('PARTS lists the 18 parts in the agreed order with their quantities, and heat-shrink is gone', () => {
+test('PARTS lists the 18 parts in the agreed order with their quantities, and heat-shrink is gone from version 1', () => {
   const { P } = boot();
   assert.deepEqual(Array.from(P.PARTS, (p) => [p.id, p.qty]), PART_ROWS);
   for (const lang of ['uk', 'en']) {
     for (const [key, value] of Object.entries(P.TEXT[lang])) {
+      if (/^(?:v2\.|steps\.v2_)/.test(key)) continue;
       assert.doesNotMatch(key, /heatshrink/, `${lang} ${key}`);
       assert.doesNotMatch(value, /термоусад|heat-shrink|heat shrink|ізолент|electrical tape/i, `${lang} ${key}`);
     }
   }
-  assert.doesNotMatch(readPage(), /heatshrink|термоусад|heat-shrink|ізолент|electrical tape/i);
+  assert.doesNotMatch(readPage().replace(/<figure class="stepper" data-stepper="v2_ring"[\s\S]*?<\/figure>/, ''), /heatshrink|термоусад|heat-shrink|ізолент|electrical tape/i);
 });
 
 test('every part has the documented fields and every id is translated in both languages', () => {
@@ -183,8 +184,8 @@ test('the 6.2 kΩ resistor comes from RCS Components in a minimum order of 4 at 
   P.renderParts(tbody, 'uk');
   assert.equal(row().cells[2].text, '20 ₴ за 4 шт.');
   assert.equal(row().cells[3].text, 'RCS Components');
-  assert.doesNotMatch(P.TEXT.uk['parts.note.res62k'], /arduino/);
-  assert.doesNotMatch(P.TEXT.en['parts.note.res62k'], /arduino/);
+  for (const lang of ['uk', 'en']) assert.equal(P.TEXT[lang]['parts.note.res62k'], undefined, `${lang}: the row has no note`);
+  assert.doesNotMatch(row().cells[0].html, /part-note/);
 });
 
 test('the filaments are priced in dollars, $4.89 for a pack of 5: UA shows the hryvnias at CONFIG.usdRate first, EN the dollars only', () => {
@@ -251,7 +252,6 @@ test('inserts and screws are bought as one kit each, and their notes say how man
   assert.match(P.TEXT.uk['parts.note.screws'], /За посиланням продається набір M2 і M2\.5 на 500 шт\., з нього знадобляться лише M2\.5×8\.$/);
   assert.match(P.TEXT.en['parts.note.screws'], /The link is a kit of 500 pcs, M2 and M2\.5; only the M2\.5×8 ones are needed\.$/);
   for (const lang of ['uk', 'en']) assert.doesNotMatch(P.TEXT[lang]['parts.note.inserts'], /насадк|special tip|insert tip/);
-  for (const lang of ['uk', 'en']) assert.doesNotMatch(P.TEXT[lang]['parts.note.res62k'], /Мінімальне|minimum/i);
   assert.match(P.TEXT.uk['parts.note.wires'], /кручена пара/);
   assert.match(P.TEXT.en['parts.note.wires'], /twisted-pair/);
   assert.match(P.TEXT.uk['parts.note.mic'], /круглий модуль INMP441/);
@@ -678,7 +678,7 @@ test('the tables are drawn with the saved language while the document is still l
   assert.ok(cost.textContent.startsWith('from '), cost.textContent);
 });
 
-test('TOOLS lists the twelve tools and renderTools draws them as list items in both languages', () => {
+test('TOOLS lists the thirteen tools, the printer first, and renderTools draws them as list items in both languages', () => {
   const { list, P } = boot();
   assert.deepEqual(Array.from(P.TOOLS, (t) => t.id), TOOL_IDS);
   for (const id of TOOL_IDS) assert.ok(`tools.item.${id}` in P.TEXT.uk && `tools.item.${id}` in P.TEXT.en, `${id} is not translated`);
@@ -695,6 +695,34 @@ test('TOOLS lists the twelve tools and renderTools draws them as list items in b
   }
 });
 
+test('before you start holds the two facts for both versions, and for version 1 only a line that it needs a home server; the server and the key are in the server section', () => {
+  const page = readPage();
+  const need = /<section id="need"[\s\S]*?<\/section>/.exec(page)[0];
+  assert.doesNotMatch(need, /<ul\b|<li\b/);
+  for (const v of ['1', '2']) {
+    const block = need.slice(need.indexOf(`data-for-v="${v}"`));
+    assert.deepEqual([...block.matchAll(/<dt data-i18n="([^"]+)">/g)].slice(0, 2).map((m) => m[1].replace(/^v2\./, '')), ['need.time_label', 'need.cost_label'], v);
+  }
+  const v1 = need.slice(need.indexOf('data-for-v="1"'), need.indexOf('data-for-v="2"'));
+  const v2 = need.slice(need.indexOf('data-for-v="2"'));
+  assert.match(v1, /<p data-i18n="need\.v1_server">[^<]*домашній сервер[^<]*<\/p>/);
+  assert.doesNotMatch(v2, /сервер/);
+  const { TEXT: T } = loadScripts(['assets/text.js']);
+  assert.match(T.en['need.v1_server'], /home server/);
+  assert.match(T.uk['hero.lead'], /домашнім сервером/);
+  assert.match(T.en['hero.lead'], /home server/);
+  const server = /<section id="server"[\s\S]*?<\/section>/.exec(page)[0];
+  for (const key of ['server.need.computer', 'server.need.key']) assert.match(server, new RegExp(`data-i18n="${key.replace(/\./g, '\\.')}"`), key);
+  assert.match(need, /<h2 data-i18n="need\.title">Перед початком<\/h2>/);
+  const { TEXT } = loadScripts(['assets/text.js']);
+  assert.equal(TEXT.uk['need.title'], 'Перед початком');
+  assert.equal(TEXT.en['need.title'], 'Before you start');
+  for (const lang of ['uk', 'en']) {
+    for (const gone of ['need.printer', 'need.solder', 'need.server', 'need.key']) assert.equal(TEXT[lang][gone], undefined, `${lang} ${gone}`);
+    assert.equal(TEXT[lang]['tools.item.printer'], lang === 'uk' ? '3D-принтер, що друкує PETG і TPU' : 'A 3D printer that prints PETG and TPU');
+  }
+});
+
 test('the page has the parts table in a scrolling wrapper, a dated caption, translated headers and the tools list', () => {
   const page = readPage();
   const parts = /<section id="parts"[\s\S]*?<\/section>/.exec(page);
@@ -702,13 +730,14 @@ test('the page has the parts table in a scrolling wrapper, a dated caption, tran
   const html = parts[0];
   assert.match(html, /<div class="table-wrap">\s*<table\b[^>]*class="parts-table"/);
   assert.match(html, /<caption data-i18n="parts\.caption">/);
-  assert.match(html, /<p class="parts-footnote" data-parts-footnote><\/p>/);
-  const heads = [...html.matchAll(/<th scope="col" data-i18n="([^"]+)">/g)].map((m) => m[1]);
+  assert.match(html, /<p class="parts-footnote" data-parts-footnote="1"><\/p>/);
+  const v1 = /<div class="section-body" data-for-v="1">[\s\S]*?<p class="parts-footnote" data-parts-footnote="1"><\/p>/.exec(html)[0];
+  const heads = [...v1.matchAll(/<th scope="col" data-i18n="([^"]+)">/g)].map((m) => m[1]);
   assert.deepEqual(heads, ['parts.col.part', 'parts.col.qty', 'parts.col.price', 'parts.col.link']);
-  assert.match(html, /<tbody data-parts><\/tbody>/);
+  assert.match(html, /<tbody data-parts="1"><\/tbody>/);
   const tools = /<section id="tools"[\s\S]*?<\/section>/.exec(page);
   assert.ok(tools, 'tools section');
-  assert.match(tools[0], /<ul class="marks" data-tools><\/ul>/);
+  assert.match(tools[0], /<ul class="marks" data-tools="1"><\/ul>/);
   const { TEXT } = loadScripts(['assets/text.js']);
   for (const key of ['parts.col.part', 'parts.col.qty', 'parts.col.price', 'parts.col.link', 'parts.caption']) {
     assert.ok(TEXT.uk[key] && TEXT.en[key], `${key} is missing in one language`);
@@ -720,7 +749,7 @@ test('the page has the parts table in a scrolling wrapper, a dated caption, tran
 
 test('the need section fills the cost slot from partsTotal and keeps the time slot apart from it', () => {
   const page = readPage();
-  assert.match(page, /<dd id="need-cost" data-cost\b/);
+  assert.match(page, /<dd id="need-cost" data-cost="1"/);
   assert.match(page, /<dd id="need-time"/);
   assert.doesNotMatch(page.match(/<dd id="need-time"[^>]*>/)[0], /data-cost/);
 });
@@ -762,9 +791,10 @@ test('the charger note asks for a slim USB-C plug that passes the slot, and the 
   assert.match(P.TEXT.uk['parts.note.charger'], /проріз/);
   assert.match(P.TEXT.en['parts.note.charger'], /at most about 10 × 6\.2 mm/);
   assert.match(P.TEXT.en['parts.note.charger'], /slot/);
-  assert.match(P.TEXT.uk['parts.note.filament'], /теплий білий, 3 В, близько 185 мм, 100 мА/);
+  assert.match(P.TEXT.uk['parts.note.filament'], /Ø1,5 мм у такому варіанті: 3 В, близько 185 мм, 100 мА\. Колір світіння — на ваш смак\./);
   assert.match(P.TEXT.uk['parts.note.filament'], /47 Ом від 5 В[^.]*3 В/);
-  assert.match(P.TEXT.en['parts.note.filament'], /warm white, 3 V, about 185 mm, 100 mA/);
+  assert.match(P.TEXT.en['parts.note.filament'], /Ø1\.5 mm filaments in this variant: 3 V, about 185 mm, 100 mA\. The colour of the light is up to you\./);
+  for (const lang of ['uk', 'en']) assert.doesNotMatch(P.TEXT[lang]['parts.note.filament'], /теплий|warm white/, lang);
   assert.match(P.TEXT.en['parts.note.filament'], /47 Ω resistor from 5 V assumes a 3 V filament/);
 });
 

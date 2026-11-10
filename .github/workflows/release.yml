@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to publish the site from again, for example v1.0.0
+        description: Existing release tag to check, after which the site is published again from main with the newest release of each line, for example v1.0.0
         required: true
         type: string
 
@@ -24,20 +24,25 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
+      line: ${{ steps.version.outputs.line }}
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
-      - name: The tag equals the firmware, server and site versions
+      - name: The tag equals the versions of its line
         run: bash .github/scripts/check-version.sh "$TAG"
       - name: CHANGELOG.md has notes for this version
         run: bash .github/scripts/release-notes.sh "${TAG#v}" > /dev/null
       - id: version
         run: |
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          version="${TAG#v}"
+          {
+            echo "tag=$TAG"
+            echo "version=$version"
+            echo "line=${version%%.*}"
+          } >> "$GITHUB_OUTPUT"
 
   test:
     name: Tests
@@ -47,49 +52,112 @@ jobs:
       contents: read
     uses: ./.github/workflows/ci.yml
 
-  release:
-    name: GitHub Release
+  build-v1:
+    name: Version 1 firmware
     needs: [check, test]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.check.outputs.line == '1'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     env:
-      TAG: ${{ needs.check.outputs.tag }}
       VERSION: ${{ needs.check.outputs.version }}
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: firmware/requirements.txt
+          cache-dependency-path: v1/firmware/requirements.txt
       - uses: actions/cache@v4
         with:
           path: ~/.cache/esphome
-          key: esphome-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('firmware/requirements.txt') }}
+          key: esphome-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('v1/firmware/requirements.txt') }}
           restore-keys: |
-            esphome-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('firmware/requirements.txt') }}
+            esphome-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('v1/firmware/requirements.txt') }}
       - name: Install ESPHome
-        run: pip install -r firmware/requirements.txt
+        run: pip install -r v1/firmware/requirements.txt
       - name: Build the firmware
-        run: bash firmware/build-web.sh
-      - name: Pack the release files
+        run: bash v1/firmware/build-web.sh
+      - name: Name the image by its version
         run: |
           mkdir -p dist
-          cp site/firmware/pytaichenko.factory.bin "dist/pytaichenko-$VERSION.factory.bin"
-          zip -j "dist/pytaichenko-$VERSION-stl.zip" case/stl/*.stl LICENSE-hardware
+          cp site/firmware/v1/pytaichenko.factory.bin "dist/pytaichenko-$VERSION.factory.bin"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/pytaichenko-*.bin
+          if-no-files-found: error
+
+  build-v2:
+    name: Version 2 firmware
+    needs: [check, test]
+    if: github.event_name == 'push' && needs.check.outputs.line == '2'
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.6
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the ESP-IDF version
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          test "$(idf.py --version)" = "ESP-IDF $(cat v2/firmware/IDF_VERSION)"
+      - name: Build the firmware
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          idf.py -C v2/firmware build
+      - name: Build the web flashing image
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh" > /dev/null
+          bash v2/firmware/build-web.sh --version "$VERSION" --out dist/web --dist dist/image
+      - name: Name the images by their version
+        shell: bash
+        run: |
+          cp dist/image/pytaichenko.factory.bin "dist/pytaichenko-$VERSION.factory.bin"
+          cp dist/image/pytaichenko.ota.bin "dist/pytaichenko-$VERSION.ota.bin"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/pytaichenko-*.bin
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: [check, build-v1, build-v2]
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' &&
+      (needs.build-v1.result == 'success' || needs.build-v2.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.check.outputs.tag }}
+      VERSION: ${{ needs.check.outputs.version }}
+      LINE: ${{ needs.check.outputs.line }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: dist
+      - name: Pack the release files
+        run: |
+          zip -j "dist/pytaichenko-$VERSION-stl.zip" "v$LINE/case/stl/"*.stl LICENSE-hardware
           bash .github/scripts/release-notes.sh "$VERSION" > dist/notes.md
       - name: Create the GitHub Release
-        run: >-
-          gh release create "$TAG"
-          "dist/pytaichenko-$VERSION.factory.bin"
-          "dist/pytaichenko-$VERSION-stl.zip"
-          --verify-tag
-          --title "Pytaichenko $VERSION"
-          --notes-file dist/notes.md
+        run: |
+          latest="$(bash .github/scripts/latest-flag.sh "$TAG")"
+          files=("dist/pytaichenko-$VERSION.factory.bin")
+          if [ "$LINE" = 2 ]; then files+=("dist/pytaichenko-$VERSION.ota.bin"); fi
+          files+=("dist/pytaichenko-$VERSION-stl.zip")
+          gh release create "$TAG" "${files[@]}" \
+            --verify-tag \
+            --title "Pytaichenko $VERSION" \
+            --notes-file dist/notes.md \
+            --latest="$latest"
 
   site:
     name: GitHub Pages
@@ -110,29 +178,15 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     env:
-      TAG: ${{ needs.check.outputs.tag }}
-      VERSION: ${{ needs.check.outputs.version }}
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ needs.check.outputs.tag }}
-      - name: Publish only the latest release
-        run: |
-          latest="$(gh release view --json tagName --jq .tagName)"
-          if [ "$latest" != "$TAG" ]; then
-            echo "::error::$TAG is not the latest release ($latest is), so the site was not published from it"
-            exit 1
-          fi
-      - name: Take the firmware and the STL archive from the release
-        run: |
-          gh release download "$TAG" --dir dist --pattern "pytaichenko-$VERSION.factory.bin" --pattern "pytaichenko-$VERSION-stl.zip"
-          mkdir -p site/firmware site/files
-          cp "dist/pytaichenko-$VERSION.factory.bin" site/firmware/pytaichenko.factory.bin
-          cp "dist/pytaichenko-$VERSION-stl.zip" site/files/pytaichenko-stl.zip
-      - name: Write the web installer manifest
-        run: bash firmware/build-web.sh --manifest-only
+          ref: main
+          fetch-depth: 0
+      - name: Take the newest release of each line
+        run: bash .github/scripts/site-releases.sh
       - name: Leave the test sources out of the published site
         run: rm -rf site/tests
       - uses: actions/upload-pages-artifact@v3

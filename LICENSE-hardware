@@ -5,9 +5,9 @@ Copyright (c) 2026 feroxes
 These parts of this repository are licensed under the Creative Commons
 Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0):
 
-- the case design: case/*.scad
-- the printable case files: case/stl/*
-- the renders: site/assets/renders/*
+- the case design: v1/case/*.scad and v2/case/*.scad
+- the printable case files: v1/case/stl/* and v2/case/stl/*
+- the renders: site/assets/renders/*, including site/assets/renders/v2/*
 - the written guides: the README files and the texts of the site
   (the words in site/index.html and site/assets/text.js)
 

@@ -107,7 +107,7 @@ export function makeEnv({ children = [], stored = null, storedTheme = null, lang
   return { document, root, store, localStorage, navigator: { languages, language: languages[0] }, location, history, replaced };
 }
 
-export function loadScripts(files, env = makeEnv()) {
+export function loadScripts(files, env = makeEnv(), preset = null) {
   const window = {
     document: env.document,
     localStorage: env.localStorage,
@@ -119,6 +119,7 @@ export function loadScripts(files, env = makeEnv()) {
     window.history = env.history;
   }
   window.window = window;
+  if (preset) window.PYTAICHENKO = preset;
   const context = vm.createContext({ window, document: env.document, navigator: env.navigator, CustomEvent: FakeCustomEvent });
   for (const file of files) {
     vm.runInContext(readSite(file), context, { filename: file });

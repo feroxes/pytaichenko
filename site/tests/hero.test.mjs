@@ -49,8 +49,8 @@ test('the photo is 1200x900 and carries no camera or location data', () => {
 });
 
 test('the render that stood in for the photo is gone', () => {
-  assert.ok(!existsSync(path.join(siteDir, '..', 'case', 'hero.scad')));
-  assert.doesNotMatch(readFileSync(path.join(siteDir, '..', 'case', 'render_steps.sh'), 'utf8'), /hero/);
+  assert.ok(!existsSync(path.join(siteDir, '..', 'v1', 'case', 'hero.scad')));
+  assert.doesNotMatch(readFileSync(path.join(siteDir, '..', 'v1', 'case', 'render_steps.sh'), 'utf8'), /hero/);
   assert.ok(!readdirSync(path.join(siteDir, 'assets', 'renders')).includes('hero.png'));
   for (const readme of ['README.md', 'README.uk.md']) {
     const text = readFileSync(path.join(siteDir, '..', readme), 'utf8');

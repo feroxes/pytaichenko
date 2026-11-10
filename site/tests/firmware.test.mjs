@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { keysIn, loadScripts, makeEnv, parseFragment, readPage, readSite, sectionHtml, siteDir, tagAttr, visibleText } from './helpers.mjs';
 
 const repoDir = path.resolve(siteDir, '..');
-const script = path.join(repoDir, 'firmware', 'build-web.sh');
-const yamlPath = path.join(repoDir, 'firmware', 'pytaichenko.yaml');
+const script = path.join(repoDir, 'v1', 'firmware', 'build-web.sh');
+const yamlPath = path.join(repoDir, 'v1', 'firmware', 'pytaichenko.yaml');
 
 function readRepo(relPath) {
   return readFileSync(path.join(repoDir, relPath), 'utf8');
@@ -34,8 +34,8 @@ function runScript(args, env) {
 const PROJECT_NAME = 'Pytaichenko.Speaker';
 
 function firmwareProject() {
-  const m = /^esphome:\n(?:  .*\n)*?  project:\n    name: (.+)\n    version: "?([^"\n]+)"?\n/m.exec(readRepo('firmware/pytaichenko.yaml'));
-  assert.ok(m, 'firmware/pytaichenko.yaml sets esphome: project: name and version');
+  const m = /^esphome:\n(?:  .*\n)*?  project:\n    name: (.+)\n    version: "?([^"\n]+)"?\n/m.exec(readRepo('v1/firmware/pytaichenko.yaml'));
+  assert.ok(m, 'v1/firmware/pytaichenko.yaml sets esphome: project: name and version');
   return { name: m[1], version: m[2] };
 }
 
@@ -122,18 +122,80 @@ test('build-web.sh fails and writes nothing when the compile leaves no factory i
   });
 });
 
+test('without WEB_OUT_DIR build-web.sh writes the installer into site/firmware/v1, the folder the version 1 button reads', () => {
+  withTemp((dir) => {
+    mkdirSync(path.join(dir, 'v1', 'firmware'), { recursive: true });
+    for (const file of ['build-web.sh', 'pytaichenko.yaml']) cpSync(path.join(repoDir, 'v1', 'firmware', file), path.join(dir, 'v1', 'firmware', file));
+    const env = { ...process.env };
+    delete env.WEB_OUT_DIR;
+    const result = spawnSync('bash', [path.join(dir, 'v1', 'firmware', 'build-web.sh'), '--manifest-only'], { cwd: dir, env, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const manifest = JSON.parse(readFileSync(path.join(dir, 'site', 'firmware', 'v1', 'manifest.json'), 'utf8'));
+    assert.equal(manifest.name, PROJECT_NAME);
+    assert.ok(!existsSync(path.join(dir, 'site', 'firmware', 'manifest.json')));
+  });
+});
+
 test('build-web.sh rejects unknown arguments', () => {
   const result = runScript(['--nope'], {});
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /usage/i);
 });
 
-test('the generated installer files are kept out of git', () => {
-  const files = ['site/firmware/manifest.json', 'site/firmware/pytaichenko.factory.bin'];
+test('build-web.sh --manifest-only --version --out writes the manifest of a published release into the given folder', () => {
+  withTemp((dir) => {
+    const env = path.join(dir, 'env');
+    const out = path.join(dir, 'out');
+    const result = runScript(['--manifest-only', '--version', '1.4.2', '--out', out], { WEB_OUT_DIR: env });
+    assert.equal(result.status, 0, result.stderr);
+    const manifest = JSON.parse(readFileSync(path.join(out, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.name, PROJECT_NAME);
+    assert.equal(manifest.version, '1.4.2');
+    assert.deepEqual(manifest.builds[0].parts, [{ path: 'pytaichenko.factory.bin', offset: 0 }]);
+    assert.ok(!existsSync(env), '--out wins over WEB_OUT_DIR');
+    const same = runScript(['--out', out, '--version', '1.4.3', '--manifest-only'], {});
+    assert.equal(same.status, 0, same.stderr);
+    assert.equal(JSON.parse(readFileSync(path.join(out, 'manifest.json'), 'utf8')).version, '1.4.3');
+    const plain = runScript(['--manifest-only', '--out', out], {});
+    assert.equal(plain.status, 0, plain.stderr);
+    assert.equal(JSON.parse(readFileSync(path.join(out, 'manifest.json'), 'utf8')).version, firmwareProject().version);
+  });
+});
+
+test('build-web.sh takes --version only with --manifest-only and only as N.N.N, and writes nothing otherwise', () => {
+  withTemp((dir) => {
+    const out = path.join(dir, 'out');
+    const esphome = fakeEsphome(dir, 'exit 1');
+    for (const args of [['--version', '1.0.1'], ['--version', '1.0.1', '--out', out], ['--manifest-only', '--version'], ['--manifest-only', '--out'], ['--manifest-only', '--out', '']]) {
+      const result = runScript(args, { WEB_OUT_DIR: out, ESPHOME_BIN: esphome });
+      assert.equal(result.status, 2, args.join(' '));
+      assert.match(result.stderr, /^usage: build-web\.sh/, args.join(' '));
+    }
+    for (const bad of ['1.0', 'v1.0.1', '1.0.1-dev', '']) {
+      const result = runScript(['--manifest-only', '--version', bad, '--out', out], {});
+      assert.equal(result.status, 1, bad);
+      assert.equal(result.stderr.trim().split('\n').length, 1, bad);
+    }
+    assert.ok(!existsSync(out));
+  });
+});
+
+test('the generated installer files and archives of every version are kept out of git', () => {
+  const files = [
+    'site/firmware/v1/manifest.json',
+    'site/firmware/v1/pytaichenko.factory.bin',
+    'site/firmware/v2/manifest.json',
+    'site/firmware/v2/bootloader.bin',
+    'site/firmware/v2/partition-table.bin',
+    'site/firmware/v2/ota_data_initial.bin',
+    'site/firmware/v2/pytaichenko.bin',
+    'site/files/v1/pytaichenko-stl.zip',
+    'site/files/v2/pytaichenko-stl.zip',
+  ];
   const ignored = spawnSync('git', ['check-ignore', ...files], { cwd: repoDir, encoding: 'utf8' });
   assert.equal(ignored.status, 0);
   assert.deepEqual(ignored.stdout.trim().split('\n'), files);
-  const tracked = execFileSync('git', ['ls-files', 'site/firmware'], { cwd: repoDir, encoding: 'utf8' });
+  const tracked = execFileSync('git', ['ls-files', 'site/firmware', 'site/files'], { cwd: repoDir, encoding: 'utf8' });
   assert.equal(tracked.trim(), '');
 });
 
@@ -171,7 +233,7 @@ function jobOf(workflow, name) {
 }
 
 test('the firmware is built from a pinned ESPHome with one toolchain cache per ESPHome pin, on main and for a release', () => {
-  for (const [file, job] of [['.github/workflows/ci.yml', 'build-firmware'], ['.github/workflows/release.yml', 'release']]) {
+  for (const [file, job] of [['.github/workflows/ci.yml', 'build-firmware'], ['.github/workflows/release.yml', 'build-v1']]) {
     const workflow = jobOf(readRepo(file), job);
     assert.match(workflow, /actions\/setup-python@v\d+/, file);
     assert.match(workflow, /python-version:\s*"3\.12"/, file);
@@ -182,36 +244,39 @@ test('the firmware is built from a pinned ESPHome with one toolchain cache per E
     assert.equal(keys.length, 1, `${file}: the ESPHome cache is keyed per runner`);
     assert.equal(
       keys[0][1].trim(),
-      "esphome-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('firmware/requirements.txt') }}",
+      "esphome-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('v1/firmware/requirements.txt') }}",
       `${file}: the toolchain depends on the ESPHome pin only, so a YAML edit reuses the same cache`,
     );
     const restores = restoreKeys(workflow);
     assert.ok(restores.length > 0, `${file}: the cache step keeps its restore-keys`);
     for (const restore of restores) {
-      assert.ok(restore.includes("hashFiles('firmware/requirements.txt')"), `${file}: a cache from another ESPHome pin is never restored: ${restore}`);
+      assert.ok(restore.includes("hashFiles('v1/firmware/requirements.txt')"), `${file}: a cache from another ESPHome pin is never restored: ${restore}`);
     }
     assert.ok(!/secrets\./.test(workflow), `${file}: the build must not need any repository secrets`);
-    const build = workflow.indexOf('bash firmware/build-web.sh\n');
+    const build = workflow.indexOf('bash v1/firmware/build-web.sh\n');
     assert.ok(build > 0, `${file}: runs build-web.sh`);
-    const install = workflow.indexOf('pip install -r firmware/requirements.txt');
+    const install = workflow.indexOf('pip install -r v1/firmware/requirements.txt');
     assert.ok(install > 0 && install < build, `${file}: ESPHome is installed from the pin before the build`);
   }
   assert.match(jobOf(readRepo('.github/workflows/ci.yml'), 'build-firmware'), /if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
 });
 
-test('the site takes the installer image from the release and writes its manifest from the tagged pytaichenko.yaml before the upload', () => {
+test('the site takes each line\'s installer from its newest release and writes its manifest with that release\'s version before the upload', () => {
   const site = jobOf(readRepo('.github/workflows/release.yml'), 'site');
-  assert.ok(!/pip install|esphome compile|bash firmware\/build-web\.sh\n/.test(site), 'the site never compiles its own firmware');
-  const download = site.indexOf('gh release download "$TAG"');
-  const copy = site.indexOf('cp "dist/pytaichenko-$VERSION.factory.bin" site/firmware/pytaichenko.factory.bin');
-  const manifest = site.indexOf('bash firmware/build-web.sh --manifest-only');
-  const upload = site.indexOf('actions/upload-pages-artifact');
-  assert.ok(download > 0 && copy > download && manifest > copy && upload > manifest);
-  assert.match(site, /ref: refs\/tags\/\$\{\{ needs\.check\.outputs\.tag \}\}/);
+  assert.ok(!/pip install|esphome compile|idf\.py|build-web\.sh/.test(site), 'the site never compiles its own firmware');
+  const script = readRepo('.github/scripts/site-releases.sh');
+  const download = script.indexOf('gh release download "$tag"');
+  const copy = script.indexOf('cp "$work/v1/pytaichenko-$version.factory.bin" "$root/site/firmware/v1/pytaichenko.factory.bin"');
+  const manifest = script.indexOf('bash "$root/v1/firmware/build-web.sh" --manifest-only --version "$version" --out "$root/site/firmware/v1"');
+  const split = script.indexOf('bash "$root/v2/firmware/build-web.sh" --from-factory "$work/v2/pytaichenko-$version.factory.bin" --version "$version" --out "$root/site/firmware/v2"');
+  assert.ok(download > 0 && copy > download && manifest > copy && split > download, `${download} ${copy} ${manifest} ${split}`);
+  assert.ok(!script.includes('site/firmware/v2/pytaichenko.factory.bin'), 'the version 2 merged image never reaches the site');
+  assert.ok(site.indexOf('bash .github/scripts/site-releases.sh') < site.indexOf('actions/upload-pages-artifact'));
+  assert.match(site, /ref: main\n/);
 });
 
 test('firmware requirements pin ESPHome exactly', () => {
-  assert.match(readRepo('firmware/requirements.txt'), /^esphome==2026\.10\.0\s*$/m);
+  assert.match(readRepo('v1/firmware/requirements.txt'), /^esphome==2026\.10\.0\s*$/m);
 });
 
 const SCRIPTS = ['assets/text.js', 'assets/config.js', 'assets/i18n.js'];
@@ -223,13 +288,16 @@ function firmwareText() {
   return loadScripts(['assets/text.js']).TEXT;
 }
 
-test('the firmware section holds the ESP Web Tools button with the relative manifest, loaded by one pinned module script', () => {
+test('the firmware section holds one ESP Web Tools button per version, each with its own relative manifest, loaded by one pinned module script', () => {
   const page = readPage();
   const section = sectionHtml(page, 'firmware');
+  const blocks = [...section.matchAll(/<div class="section-body" data-for-v="(\d)">/g)].map((m) => [m.index, m[1]]);
   const buttons = [...section.matchAll(/<esp-web-install-button\b([^>]*)>/g)];
-  assert.equal(buttons.length, 1, 'one install button in #firmware');
-  assert.equal(tagAttr(buttons[0][1], 'manifest'), 'firmware/manifest.json');
-  assert.equal([...page.matchAll(/<esp-web-install-button\b/g)].length, 1);
+  assert.deepEqual(
+    buttons.map((b) => [blocks.filter(([i]) => i < b.index).pop()[1], tagAttr(b[1], 'manifest')]),
+    [['1', 'firmware/v1/manifest.json'], ['2', 'firmware/v2/manifest.json']],
+  );
+  assert.equal([...page.matchAll(/<esp-web-install-button\b/g)].length, 2);
 
   const modules = [...page.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].filter((m) => /\btype\s*=\s*"module"/i.test(m[1]));
   assert.equal(modules.length, 1, 'exactly one module script on the page');
@@ -272,7 +340,7 @@ test('switching to English leaves no Cyrillic in the firmware section, including
   const translated = fragment.querySelectorAll('[data-i18n]');
   assert.ok(translated.length >= 20, `expected many translated texts, got ${translated.length}`);
   const slotTexts = translated.filter((el) => el.hasAttribute('slot'));
-  assert.equal(slotTexts.length, 3);
+  assert.equal(slotTexts.length, 6, 'three slots in each version button');
 
   P.setLang('en');
   for (const el of translated) assert.equal(el.textContent, P.TEXT.en[el.getAttribute('data-i18n')]);
@@ -327,7 +395,8 @@ test('what you need: Chrome or Edge on a computer, a USB-C cable that carries da
     assert.match(TEXT[lang]['firmware.need.driver'], /CH340/);
     assert.match(TEXT[lang]['firmware.need.driver'], /CP210x/);
   }
-  const links = [...section.matchAll(/<a\b([^>]*)>/g)].map((m) => m[1]).filter((tag) => /^https?:/.test(tagAttr(tag, 'href') || ''));
+  const v1 = section.slice(0, section.indexOf('<div class="section-body" data-for-v="2">'));
+  const links = [...v1.matchAll(/<a\b([^>]*)>/g)].map((m) => m[1]).filter((tag) => /^https?:/.test(tagAttr(tag, 'href') || ''));
   assert.deepEqual(links.map((tag) => tagAttr(tag, 'href')), [CH340_URL, CP210X_URL]);
   for (const tag of links) {
     assert.equal(tagAttr(tag, 'target'), '_blank');
@@ -385,7 +454,7 @@ test('the speaker accepts its first server connection for a day after power-on, 
   const section = sectionHtml(readPage(), 'firmware');
   const keys = keysIn(section);
   assert.equal(keys.indexOf('firmware.next.window'), keys.indexOf('firmware.next.server') + 1);
-  const yaml = readRepo('firmware/pytaichenko.yaml');
+  const yaml = readRepo('v1/firmware/pytaichenko.yaml');
   assert.match(yaml, /^provisioning:\n  timeout: 24h$/m);
   assert.match(yaml, /^  on_timeout:\n    - if:\n        condition:\n          lambda: return api::global_api_server->get_noise_ctx\(\)\.has_psk\(\);\n        then:\n          - lambda: App\.safe_reboot\(\);$/m);
   const TEXT = firmwareText();
@@ -495,4 +564,35 @@ test('the install button stays hidden until ESP Web Tools defines it, and the st
   assert.match(css, /esp-web-install-button:not\(:defined\)\s*\{[^}]*display:\s*none/);
   assert.match(css, /\.steps\s*\{[^}]*counter-reset:\s*step/);
   assert.match(css, /\.steps li::before\s*\{[^}]*content:\s*counter\(step\)/);
+});
+
+function ancestorsHidden(root, target) {
+  const walk = (el, hidden) => {
+    if (el === target) return hidden;
+    for (const child of el.children) {
+      const found = walk(child, hidden || child.hasAttribute('hidden'));
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  return walk(root, root.hasAttribute('hidden'));
+}
+
+test('only the install button of the shown version is reachable: the other one sits under a hidden version block', () => {
+  const fragment = parseFragment(sectionHtml(readPage(), 'firmware'));
+  const env = makeEnv({ children: [fragment], languages: ['uk-UA'], href: 'https://example.github.io/pytaichenko/?v=2' });
+  const P = loadScripts(['assets/text.js', 'assets/releases.js', 'assets/config.js', 'assets/version.js', 'assets/i18n.js'], env);
+  const buttons = [];
+  const find = (el) => {
+    if (el.tagName === 'esp-web-install-button') buttons.push(el);
+    el.children.forEach(find);
+  };
+  find(fragment);
+  assert.deepEqual(buttons.map((b) => b.getAttribute('manifest')), ['firmware/v1/manifest.json', 'firmware/v2/manifest.json']);
+  assert.deepEqual(buttons.map((b) => ancestorsHidden(fragment, b)), [true, false]);
+  P.setVersion('1');
+  assert.deepEqual(buttons.map((b) => ancestorsHidden(fragment, b)), [false, true]);
+  P.setVersion('2');
+  assert.deepEqual(buttons.map((b) => ancestorsHidden(fragment, b)), [true, false]);
+  assert.match(readSite('assets/style.css'), /\[data-for-v\]\[hidden\]\s*\{[^}]*display:\s*none\s*!important/);
 });

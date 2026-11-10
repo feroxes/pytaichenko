@@ -3,7 +3,7 @@
 **English** · [Українська](README.uk.md)
 
 <p align="center">
-  <img src="site/assets/photos-v2/speaker.jpg" width="640" alt="Pytaichenko on a desk: a low round black case, the top covered in small holes, a thin white ring strip under it and a small microphone hole on the side">
+  <img src="site/assets/photos-v2/pytaichenko.jpg" width="640" alt="Pytaichenko on a desk: a low round black case, the top covered in small holes, a thin white ring strip under it and a small microphone hole on the side">
 </p>
 
 <p align="center"><b>A voice speaker you build yourself: it hears its wake phrase on the board and holds the conversation with the OpenAI Realtime API.</b></p>

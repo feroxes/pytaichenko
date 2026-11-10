@@ -321,10 +321,10 @@ test('the version 2 hero has the page heading, a one-sentence lead about talking
   assert.match(block, /<p class="lead" data-i18n="v2\.hero\.lead">/);
   const img = /<img\b[^>]*>/.exec(block)[0];
   assert.match(img, /class="hero-media"/);
-  assert.match(img, /src="assets\/photos-v2\/speaker\.jpg"/);
+  assert.match(img, /src="assets\/photos-v2\/pytaichenko\.jpg"/);
   assert.match(img, /width="1200" height="900"/);
   assert.match(img, /data-i18n-attr="alt:v2\.hero\.image"/);
-  const jpg = readFileSync(path.join(siteDir, 'assets/photos-v2/speaker.jpg'));
+  const jpg = readFileSync(path.join(siteDir, 'assets/photos-v2/pytaichenko.jpg'));
   assert.equal(jpg.readUInt16BE(0), 0xffd8);
   const { TEXT } = loadScripts(['assets/text.js']);
   assert.match(TEXT.uk['v2.hero.lead'], /OpenAI/);

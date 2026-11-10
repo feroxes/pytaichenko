@@ -54,7 +54,7 @@ test('the render that stood in for the photo is gone', () => {
   assert.ok(!readdirSync(path.join(siteDir, 'assets', 'renders')).includes('hero.png'));
   for (const readme of ['README.md', 'README.uk.md']) {
     const text = readFileSync(path.join(siteDir, '..', readme), 'utf8');
-    assert.match(text, /<img src="site\/assets\/photos-v2\/speaker\.jpg"/, readme);
+    assert.match(text, /<img src="site\/assets\/photos-v2\/pytaichenko\.jpg"/, readme);
     assert.doesNotMatch(text, /renders\/hero\.png/, readme);
   }
 });

@@ -4,6 +4,21 @@ Notable changes to Pytaichenko, newest first. The format follows [Keep a Changel
 
 Помітні зміни «Питайченка», найновіші зверху. Колонок дві, у кожної своя лінія версій: 1.x — версія 1 (з домашнім сервером), 2.x — версія 2 (сама по собі). У межах лінії нове середнє число означає нові можливості, останнє — виправлення.
 
+## [2.0.1] - 2026-11-10
+
+### Fixed
+
+- Updates from GitHub on the speaker's settings page stopped with “the firmware file could not be downloaded”: GitHub hands the file out from a long address that did not fit into the speaker's request. A speaker on 2.0.0 cannot update itself from GitHub, so install 2.0.1 once by hand: on its settings page under “Firmware from a file” with `pytaichenko-2.0.1.ota.bin` from this release, or with “Update” in the installer on the site. Later updates from GitHub work again.
+
+### Changed
+
+- Site: counts page views with Cloudflare Web Analytics, which sets no cookies.
+
+### Українською
+
+- Оновлення з GitHub на сторінці налаштувань колонки зупинялось з «the firmware file could not be downloaded»: GitHub віддає файл із довгої адреси, яка не вміщалась у запит колонки. Колонка на 2.0.0 не може сама оновитися з GitHub, тож 2.0.1 треба один раз встановити вручну: на її сторінці налаштувань у «Прошивка з файлу» з `pytaichenko-2.0.1.ota.bin` з цього релізу або кнопкою «Update» в установнику на сайті. Далі оновлення з GitHub знову працюють.
+- Сайт рахує перегляди сторінок через Cloudflare Web Analytics, яка не ставить cookies.
+
 ## [2.0.0] - 2026-11-10
 
 Version 2: a new speaker that talks with OpenAI by itself. Version 1 stays as it is.
@@ -48,5 +63,6 @@ The first public release: everything needed to build the speaker and run it at h
 - Сервер: `voice-hub` працює в Docker на комп'ютері в домашній мережі й веде розмову через OpenAI Realtime API з вашим власним ключем. На його сторінці налаштувань, українською й англійською, задають пароль, ключ OpenAI, мову й інструкції розмови та часи, знаходять і забирають колонки, обирають їм ключову фразу.
 - Сайт: сторінка проєкту українською й англійською — деталі й де їх купити, інструменти, друк, пайка, збирання, встановлення прошивки, запуск сервера й «Якщо щось не так».
 
+[2.0.1]: https://github.com/feroxes/pytaichenko/releases/tag/v2.0.1
 [2.0.0]: https://github.com/feroxes/pytaichenko/releases/tag/v2.0.0
 [1.0.0]: https://github.com/feroxes/pytaichenko/releases/tag/v1.0.0

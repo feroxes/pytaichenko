@@ -21,6 +21,7 @@
 #define RELEASES_MAX (160u * 1024u)
 #define HTTP_TIMEOUT_MS 15000
 #define HTTP_OK 200
+#define HTTP_TX_BUF 2048
 #define MARK_VALID_FIRST_US (30ll * 1000000ll)
 #define MARK_VALID_RETRY_US (10ll * 1000000ll)
 #define RESTART_DELAY_US (2500ll * 1000ll)
@@ -185,6 +186,7 @@ pt_err_t pt_ota_from_url(const char *url, const char *version)
         .url = url,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = HTTP_TIMEOUT_MS,
+        .buffer_size_tx = HTTP_TX_BUF,
         .keep_alive_enable = true,
         .user_agent = user_agent(),
         .event_handler = count_download,

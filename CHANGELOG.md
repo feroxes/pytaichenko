@@ -9,10 +9,17 @@ Notable changes to Pytaichenko, newest first. The format follows [Keep a Changel
 ### Added
 
 - Speaker: it can now talk through OpenAI GPT-Live (`gpt-live-1`). Choose it in the “Model” field on the speaker's settings page: the conversation is faster and more natural. GPT-Live is billed at $0.05 per minute of conversation plus a small charge for the helper model that carries out actions such as changing the volume or ending the conversation. The realtime models (`gpt-realtime-2.1-mini`, the default, and `gpt-realtime-2.1`) work as before.
+- With GPT-Live the speaker keeps a ready connection to OpenAI between conversations (it costs nothing until you speak), so the start of your question is not lost and the first answer comes sooner. If GPT-Live stays silent after you speak, for example after “thank you, that's all”, the conversation ends after 3 seconds.
+
+### Changed
+
+- The connection to OpenAI is steadier: the speaker uses larger network buffers and sends the microphone sound in fewer, larger pieces.
 
 ### Українською
 
 - Колонка тепер може говорити через OpenAI GPT-Live (`gpt-live-1`). Оберіть його в полі «Модель» на сторінці налаштувань колонки: розмова швидша й природніша. GPT-Live оплачується по 0,05 $ за хвилину розмови плюс невелика плата за допоміжну модель, яка виконує дії, як-от зміну гучності чи завершення розмови. Моделі реального часу (`gpt-realtime-2.1-mini`, типова, і `gpt-realtime-2.1`) працюють як і раніше.
+- З GPT-Live колонка між розмовами тримає готове з'єднання з OpenAI (поки ви не заговорите, воно нічого не коштує), тож початок питання не губиться, а перша відповідь приходить швидше. Якщо після ваших слів GPT-Live мовчить, наприклад після «дякую, все», розмова закінчується за 3 секунди.
+- З'єднання з OpenAI стабільніше: колонка використовує більші мережеві буфери й надсилає звук мікрофона рідше, більшими шматками.
 
 ## [2.0.1] - 2026-11-10
 

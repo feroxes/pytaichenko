@@ -644,6 +644,41 @@ void test_live_silent_model_ends_with_no_answer(void)
     assert_no_answer_end();
 }
 
+void test_live_answer_just_before_three_seconds_plays(void)
+{
+    start();
+    ask("Привіт");
+    uint32_t stopped = now;
+    advance(2999);
+    EXPECT_DEVICES(L, SS, SP);
+    reply(300);
+    EXPECT_DEVICES(L, SS, SP, AS, AN);
+    TEST_ASSERT_EQUAL_UINT32(stopped + 2999, fp_time_of(&F, AS, 0));
+    TEST_ASSERT_TRUE(last_device()->follow_up);
+    TEST_ASSERT_TRUE(pt_convo_follow_up_pending(C));
+    TEST_ASSERT_TRUE(fp_live(&F, 1));
+    TEST_ASSERT_EQUAL_size_t(7200 + 6000, fp_played(&F, NULL, 0));
+    TEST_ASSERT_FALSE(log_mentions("turn ended: no answer"));
+    start();
+    ask("А Німеччини?");
+    reply(300);
+    EXPECT_DEVICES(L, SS, SP, AS, AN, L, SS, SP, AS, AN);
+    TEST_ASSERT_EQUAL_INT(1, F.opened);
+}
+
+void test_live_no_answer_at_exactly_three_seconds_ends(void)
+{
+    start();
+    ask("Привіт");
+    uint32_t stopped = now;
+    advance(2999);
+    EXPECT_DEVICES(L, SS, SP);
+    advance(1);
+    EXPECT_DEVICES(L, SS, SP, EN);
+    TEST_ASSERT_EQUAL_UINT32(stopped + 3000, fp_time_of(&F, EN, 0));
+    assert_no_answer_end();
+}
+
 void test_live_silent_model_ends_at_three_seconds_even_with_a_long_timeout(void)
 {
     S->timing.response_timeout_s = 30.0f;
@@ -1195,6 +1230,8 @@ int main(void)
     RUN_TEST(test_live_session_closed_mid_answer_fails);
     RUN_TEST(test_live_socket_closed_mid_turn_fails);
     RUN_TEST(test_live_silent_model_ends_with_no_answer);
+    RUN_TEST(test_live_answer_just_before_three_seconds_plays);
+    RUN_TEST(test_live_no_answer_at_exactly_three_seconds_ends);
     RUN_TEST(test_live_silent_model_ends_at_three_seconds_even_with_a_long_timeout);
     RUN_TEST(test_live_silent_model_with_a_short_timeout_ends_sooner);
     RUN_TEST(test_live_delegation_waits_at_most_eight_seconds);

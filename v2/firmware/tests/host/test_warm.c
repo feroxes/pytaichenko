@@ -616,6 +616,56 @@ void test_warm_connection_lost_at_start_opens_a_new_one(void)
     EXPECT_DEVICES(L, SS, SP, AS, AN);
 }
 
+void test_warm_connection_lost_at_start_keeps_the_history(void)
+{
+    warm();
+    start();
+    ask("Яка столиця Франції?");
+    said("Париж.");
+    reply(300);
+    stop();
+    advance(2000);
+    TEST_ASSERT_EQUAL_INT(2, F.opened);
+    pt_convo_start(C, now);
+    pt_convo_rt_closed(C, now);
+    fp_pump(&F);
+    TEST_ASSERT_EQUAL_INT(3, F.opened);
+    TEST_ASSERT_TRUE(log_mentions("opening a new one"));
+    cJSON *root = cJSON_Parse(sent_json("session.start", 3, 0));
+    TEST_ASSERT_NOT_NULL(root);
+    const cJSON *input = cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root, "session"), "input");
+    TEST_ASSERT_EQUAL_INT(2, cJSON_GetArraySize(input));
+    char *text = cJSON_PrintUnformatted(input);
+    TEST_ASSERT_NOT_NULL(strstr(text, "Яка столиця Франції?"));
+    TEST_ASSERT_NOT_NULL(strstr(text, "Париж."));
+    free(text);
+    cJSON_Delete(root);
+}
+
+void test_warm_failure_after_a_long_idle_is_logged(void)
+{
+    warm();
+    advance(60000);
+    for (int i = 2; i <= 4; i++) {
+        F.conn[i].fail_connect = true;
+    }
+    closed_socket();
+    advance(2000);
+    TEST_ASSERT_EQUAL_INT(2, F.opened);
+    TEST_ASSERT_EQUAL_size_t(1, log_count("warm live connection failed: connect failed; trying again in 10 s"));
+    advance(40000);
+    TEST_ASSERT_EQUAL_INT(4, F.opened);
+    TEST_ASSERT_EQUAL_size_t(1, log_count("warm live connection failed"));
+    advance(60000);
+    TEST_ASSERT_EQUAL_INT(5, F.opened);
+    TEST_ASSERT_TRUE(fp_live(&F, 5));
+    F.conn[6].fail_connect = true;
+    closed_socket();
+    advance(60000);
+    TEST_ASSERT_EQUAL_INT(6, F.opened);
+    TEST_ASSERT_EQUAL_size_t(2, log_count("warm live connection failed"));
+}
+
 void test_warm_connection_refused_at_start_fails_the_turn(void)
 {
     warm();
@@ -650,6 +700,8 @@ int main(void)
     RUN_TEST(test_not_allowed_after_the_conversation_does_not_warm);
     RUN_TEST(test_no_warm_without_a_key);
     RUN_TEST(test_warm_connection_lost_at_start_opens_a_new_one);
+    RUN_TEST(test_warm_connection_lost_at_start_keeps_the_history);
+    RUN_TEST(test_warm_failure_after_a_long_idle_is_logged);
     RUN_TEST(test_warm_connection_refused_at_start_fails_the_turn);
     return UNITY_END();
 }

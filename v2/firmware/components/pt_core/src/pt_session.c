@@ -39,6 +39,7 @@ struct pt_session {
     bool warm_allowed;
     bool from_warm;
     bool cooldown;
+    bool warm_reported;
     unsigned warm_fails;
     uint32_t warm_since;
     char **hist_role;
@@ -337,7 +338,8 @@ static void warm_failed(pt_session_t *s, const char *why, uint32_t now_ms)
     }
     unsigned step = s->warm_fails < WARM_STEPS ? s->warm_fails : WARM_STEPS - 1;
     uint32_t delay = WARM_BACKOFF_MS[step];
-    if (s->state == ST_WARMING && s->warm_fails == 0) {
+    if (s->state == ST_WARMING && !s->warm_reported) {
+        s->warm_reported = true;
         pt_log_add(s->log, log_time(now_ms), "warm live connection failed: %s; trying again in %u s",
                    why != NULL && why[0] != '\0' ? why : "unknown", (unsigned)(delay / 1000u));
     }
@@ -372,6 +374,7 @@ void pt_session_warm_sync(pt_session_t *s, uint32_t now_ms)
         pt_log_add(s->log, log_time(now_ms), "closing the warm live connection");
         close_connection(s);
         s->warm_fails = 0;
+        s->warm_reported = false;
         if (want) {
             set_deadline(&s->warm, now_ms);
         }
@@ -389,6 +392,7 @@ void pt_session_warm_sync(pt_session_t *s, uint32_t now_ms)
     if (s->warm.on) {
         if (s->warm_fails > 0 && !same_target(&s->used, &s->fresh)) {
             s->warm_fails = 0;
+            s->warm_reported = false;
             set_deadline(&s->warm, now_ms);
         }
         return;
@@ -405,6 +409,7 @@ void pt_session_allow_warm(pt_session_t *s, bool allowed, uint32_t now_ms)
     if (allowed != s->warm_allowed) {
         s->warm_allowed = allowed;
         s->warm_fails = 0;
+        s->warm_reported = false;
         s->cooldown = false;
         if (!warm_state(s)) {
             s->warm.on = false;
@@ -608,6 +613,7 @@ void pt_session_rt_opened(pt_session_t *s, uint32_t now_ms)
         s->state = ST_WARM;
         s->warm.on = false;
         s->warm_since = now_ms;
+        s->warm_reported = false;
         pt_log_add(s->log, log_time(now_ms), "live connection ready (warm)");
         return;
     }
@@ -643,7 +649,6 @@ static void start_live(pt_session_t *s, uint32_t now_ms)
         open_failed(s, "could not build the session start", now_ms);
         return;
     }
-    clear_history(s);
     s->state = ST_WAIT_STARTED;
     send_raw(s, start);
     free(start);
@@ -691,6 +696,8 @@ static void handshake(pt_session_t *s, const pt_rt_event_t *e, uint32_t now_ms)
         s->waiting = WAIT_NONE;
         s->open.on = false;
         s->warm_fails = 0;
+        s->warm_reported = false;
+        clear_history(s);
         pt_log_add(s->log, log_time(now_ms), "live session ready: model %s, voice %s",
                    e->model[0] != '\0' ? e->model : "?", e->voice[0] != '\0' ? e->voice : "?");
         pt_log_add(s->log, log_time(now_ms), "live session opened");

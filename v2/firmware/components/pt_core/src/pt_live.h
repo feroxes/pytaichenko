@@ -45,7 +45,7 @@ char *pt_io_tool(pt_convo_io_t *io, const pt_tool_call_t *call, uint32_t now_ms)
 
 void pt_early_init(pt_early_t *e, float first_turn_s);
 void pt_early_push(pt_early_t *e, const int16_t *x, size_t n);
-bool pt_early_flush(pt_early_t *e, pt_log_t *log, uint32_t now_ms, pt_early_send_fn send, void *ctx);
+bool pt_early_flush(pt_early_t *e, pt_log_t *log, uint32_t now_ms, size_t chunk, pt_early_send_fn send, void *ctx);
 void pt_early_free(pt_early_t *e);
 
 typedef struct pt_live pt_live_t;

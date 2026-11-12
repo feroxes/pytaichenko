@@ -17,9 +17,9 @@
 #include "pt_rt.h"
 
 #define WS_TASK_STACK 8192
-#define WS_TASK_PRIO 5
+#define WS_TASK_PRIO 4
 #define WS_IO_STACK 8192
-#define WS_IO_PRIO 5
+#define WS_IO_PRIO 4
 #define WS_IO_BUFFER 4096
 #define WS_PING_S 15
 #define WS_PONG_TIMEOUT_S 8
@@ -505,6 +505,7 @@ bool pt_ws_send(const char *json)
     }
     if (atomic_fetch_add(&s_pending_sends, 1) >= PT_WS_SEND_QUEUE) {
         atomic_fetch_sub(&s_pending_sends, 1);
+        ESP_LOGW(TAG, "send queue full (%d messages waiting)", PT_WS_SEND_QUEUE);
         return false;
     }
     char *copy = big_copy(json);

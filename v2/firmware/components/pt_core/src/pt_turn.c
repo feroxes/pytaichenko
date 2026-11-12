@@ -174,7 +174,7 @@ void pt_early_push(pt_early_t *e, const int16_t *x, size_t n)
     e->len += n;
 }
 
-bool pt_early_flush(pt_early_t *e, pt_log_t *log, uint32_t now_ms, pt_early_send_fn send, void *ctx)
+bool pt_early_flush(pt_early_t *e, pt_log_t *log, uint32_t now_ms, size_t chunk, pt_early_send_fn send, void *ctx)
 {
     if (e->dropped > 0) {
         pt_log_add(log, log_time(now_ms), "dropped %.2f s of audio heard before the session was ready",
@@ -182,8 +182,8 @@ bool pt_early_flush(pt_early_t *e, pt_log_t *log, uint32_t now_ms, pt_early_send
     }
     while (e->len > 0) {
         size_t k = e->len;
-        if (k > EARLY_CHUNK) {
-            k = EARLY_CHUNK;
+        if (k > chunk) {
+            k = chunk;
         }
         if (k > e->size - e->head) {
             k = e->size - e->head;
@@ -341,7 +341,7 @@ static bool early_send(void *ctx, const int16_t *pcm, size_t n, uint32_t now_ms)
 
 static void flush_early(pt_convo_t *c, uint32_t now_ms)
 {
-    pt_early_flush(&c->turn.early, c->io.log, now_ms, early_send, c);
+    pt_early_flush(&c->turn.early, c->io.log, now_ms, EARLY_CHUNK, early_send, c);
 }
 
 static void play_through(pt_convo_t *c, const int16_t *pcm, size_t n)

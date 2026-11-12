@@ -292,7 +292,11 @@ void test_live_answer_flow(void)
     TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.start", 1));
     mic();
     mic();
-    TEST_ASSERT_TRUE(fp_sends(&F, "session.input_audio.append", 1) > 0);
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "session.input_audio.append", 1));
+    mic();
+    mic();
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.input_audio.append", 1));
+    TEST_ASSERT_EQUAL_size_t(2400, fp_appended_len(&F, 1));
     heard("Яка");
     EXPECT_DEVICES(L, SS);
     advance(799);
@@ -384,7 +388,7 @@ void test_live_no_keepalive_while_listening(void)
             appends++;
         }
     }
-    TEST_ASSERT_EQUAL_size_t(15, appends);
+    TEST_ASSERT_EQUAL_size_t(4, appends);
 }
 
 void test_live_prebuffer(void)
@@ -1002,7 +1006,9 @@ void test_switch_engines_between_conversations(void)
     TEST_ASSERT_EQUAL_INT(2, F.opened);
     TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.start", 2));
     TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "session.update", 2));
-    mic();
+    for (int i = 0; i < 4; i++) {
+        mic();
+    }
     TEST_ASSERT_TRUE(fp_sends(&F, "session.input_audio.append", 2) > 0);
     stop();
     use_model("gpt-realtime-2.1-mini");

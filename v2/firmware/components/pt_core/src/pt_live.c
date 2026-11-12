@@ -14,6 +14,7 @@
 #define STALL_S 2.0f
 #define KEEP_MS 100u
 #define KEEP_SAMPLES 2400u
+#define LIVE_EARLY_CHUNK 12000u
 #define TEXT_CAP 4000u
 #define HISTORY_MAX 24u
 #define HISTORY_CHARS 4000u
@@ -74,6 +75,8 @@ struct pt_live {
     pt_slot_t stall;
     pt_slot_t keep;
     pt_slot_t forget;
+    int16_t tx[KEEP_SAMPLES];
+    size_t tx_n;
 };
 
 static const int16_t ZEROS[KEEP_SAMPLES];
@@ -233,6 +236,13 @@ static bool early_send(void *ctx, const int16_t *pcm, size_t n, uint32_t now_ms)
     return false;
 }
 
+static bool tx_flush(pt_live_t *l)
+{
+    size_t n = l->tx_n;
+    l->tx_n = 0;
+    return n == 0 || send_pcm(l, l->tx, n);
+}
+
 static bool forwarding(const pt_live_t *l)
 {
     const live_turn_t *t = &l->turn;
@@ -339,6 +349,7 @@ static void end_convo(pt_live_t *l, uint32_t now_ms)
     }
     seg_drop(l);
     remember(l, false, &l->answer);
+    l->tx_n = 0;
     l->convo = false;
     l->follow_up = false;
     l->follow_ups = 0;
@@ -436,6 +447,10 @@ static void own_segment(pt_live_t *l)
 
 static void seg_begin(pt_live_t *l, uint32_t now_ms)
 {
+    if (!tx_flush(l)) {
+        send_failed(l, now_ms);
+        return;
+    }
     l->seg_on = true;
     l->zero_run = 0;
     l->played = 0;
@@ -624,6 +639,7 @@ static void keep_alive(pt_live_t *l, uint32_t at, uint32_t now_ms)
     if (forwarding(l) || gen == 0 || gen != l->gen) {
         return;
     }
+    tx_flush(l);
     send_pcm(l, ZEROS, KEEP_SAMPLES);
 }
 
@@ -751,8 +767,19 @@ void pt_live_mic(pt_live_t *l, const int16_t *pcm, size_t n, uint32_t now_ms)
         pt_early_push(&t->early, out, produced);
         return;
     }
-    if (!send_pcm(l, out, produced)) {
-        send_failed(l, now_ms);
+    while (produced > 0) {
+        size_t k = KEEP_SAMPLES - l->tx_n;
+        if (k > produced) {
+            k = produced;
+        }
+        memcpy(l->tx + l->tx_n, out, k * sizeof(int16_t));
+        l->tx_n += k;
+        out += k;
+        produced -= k;
+        if (l->tx_n == KEEP_SAMPLES && !tx_flush(l)) {
+            send_failed(l, now_ms);
+            return;
+        }
     }
 }
 
@@ -867,7 +894,7 @@ void pt_live_on_ready(pt_live_t *l, uint32_t now_ms)
     const pt_timing_t *timing = pt_session_timing(session(l));
     t->arm_kind = ARM_LISTEN;
     pt_slot_arm(&t->arm, now_ms, t->follow_up ? timing->follow_up_s : timing->first_turn_s);
-    pt_early_flush(&t->early, l->io->log, now_ms, early_send, l);
+    pt_early_flush(&t->early, l->io->log, now_ms, LIVE_EARLY_CHUNK, early_send, l);
 }
 
 void pt_live_on_failed(pt_live_t *l, const char *why, uint32_t now_ms)

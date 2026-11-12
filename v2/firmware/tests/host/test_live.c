@@ -637,6 +637,19 @@ void test_live_silent_model_ends_with_no_answer(void)
     assert_no_answer_end();
 }
 
+void test_live_silent_model_waits_at_most_eight_seconds(void)
+{
+    S->timing.response_timeout_s = 30.0f;
+    apply();
+    start();
+    ask("Дякую, все");
+    advance(7900);
+    EXPECT_DEVICES(L, SS, SP);
+    advance(100);
+    EXPECT_DEVICES(L, SS, SP, EN);
+    assert_no_answer_end();
+}
+
 void test_live_background_speech_past_the_cap_ends(void)
 {
     start();
@@ -1073,6 +1086,7 @@ int main(void)
     RUN_TEST(test_live_session_closed_mid_answer_fails);
     RUN_TEST(test_live_socket_closed_mid_turn_fails);
     RUN_TEST(test_live_silent_model_ends_with_no_answer);
+    RUN_TEST(test_live_silent_model_waits_at_most_eight_seconds);
     RUN_TEST(test_live_background_speech_past_the_cap_ends);
     RUN_TEST(test_live_resumed_speech_goes_back_to_speaking_under_the_cap);
     RUN_TEST(test_live_resumed_speech_then_answer);

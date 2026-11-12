@@ -15,6 +15,7 @@
 #define KEEP_MS 100u
 #define KEEP_SAMPLES 2400u
 #define LIVE_EARLY_CHUNK 12000u
+#define LIVE_NO_ANSWER_S 8.0f
 #define TEXT_CAP 4000u
 #define HISTORY_MAX 24u
 #define HISTORY_CHARS 4000u
@@ -407,6 +408,11 @@ static void finish_ending(pt_live_t *l, uint32_t now_ms)
     end_convo(l, now_ms);
 }
 
+static float no_answer_s(const pt_timing_t *timing)
+{
+    return timing->response_timeout_s < LIVE_NO_ANSWER_S ? timing->response_timeout_s : LIVE_NO_ANSWER_S;
+}
+
 static void speech_stopped(pt_live_t *l, uint32_t now_ms)
 {
     live_turn_t *t = &l->turn;
@@ -428,7 +434,7 @@ static void speech_stopped(pt_live_t *l, uint32_t now_ms)
         pt_io_device(l->io, PT_DEV_SPEECH_STOPPED, false, NULL);
     }
     t->arm_kind = ARM_RESPONSE;
-    pt_slot_arm(&t->arm, now_ms, timing->response_timeout_s);
+    pt_slot_arm(&t->arm, now_ms, no_answer_s(timing));
 }
 
 static void own_segment(pt_live_t *l)
@@ -623,7 +629,7 @@ static void on_tool(pt_live_t *l, const pt_rt_event_t *e, uint32_t now_ms)
     }
     live_turn_t *t = &l->turn;
     if (t->active && t->phase == PH_THINKING) {
-        pt_slot_arm(&t->arm, now_ms, pt_session_timing(session(l))->response_timeout_s);
+        pt_slot_arm(&t->arm, now_ms, no_answer_s(pt_session_timing(session(l))));
     }
 }
 

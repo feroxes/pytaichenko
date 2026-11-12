@@ -553,6 +553,7 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
                                  size_t model_len, char *voice, size_t voice_len, char *error, size_t error_len)
 {
     bool update_sent = false;
+    bool live = pt_rt_is_live(s->openai.model);
     for (;;) {
         int64_t left_us = deadline_us - esp_timer_get_time();
         if (left_us <= 0) {
@@ -564,6 +565,15 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
         }
         if (item.kind == PROBE_CLOSED) {
             return item.why;
+        }
+        if (live && item.kind == PROBE_OPENED) {
+            char *start = pt_rt_live_start(s, NULL, 0, false);
+            if (start == NULL || !conn_send(c, start)) {
+                free(start);
+                return PT_WS_NO_NETWORK;
+            }
+            free(start);
+            continue;
         }
         if (item.kind != PROBE_MESSAGE) {
             continue;
@@ -577,6 +587,7 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
         pt_rt_kind_t kind = e.kind;
         bool created = kind == PT_RT_SESSION_READY && strcmp(e.status, "created") == 0;
         bool updated = kind == PT_RT_SESSION_READY && strcmp(e.status, "updated") == 0;
+        bool started = kind == PT_RT_SESSION_READY && strcmp(e.status, "started") == 0;
         if (kind == PT_RT_SESSION_READY && e.model[0] != '\0') {
             copy_text(model, model_len, e.model);
         }
@@ -591,7 +602,12 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
         if (kind == PT_RT_ERROR) {
             return PT_WS_REJECTED;
         }
-        if (created && !update_sent) {
+        if (live) {
+            if (started) {
+                conn_send(c, pt_rt_live_close());
+                return PT_WS_OK;
+            }
+        } else if (created && !update_sent) {
             char *update = pt_rt_session_update(s);
             if (update == NULL || !conn_send(c, update)) {
                 free(update);

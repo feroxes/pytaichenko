@@ -542,10 +542,12 @@ static void pump_devices(void)
         dev_item_t d = s_devs[s_dev_head];
         s_dev_head = (s_dev_head + 1) % DEV_FIFO_LEN;
         s_dev_len--;
-        if (terminal(d.ev) && !s_held_on && pt_appstate_in_convo(s_app) && pt_audio_playing()) {
+        if (terminal(d.ev) && pt_appstate_in_convo(s_app) && pt_audio_playing()) {
             s_held = d;
-            s_held_on = true;
-            s_held_limit = pt_time_after(now_ms(), HOLD_LIMIT_MS);
+            if (!s_held_on) {
+                s_held_on = true;
+                s_held_limit = pt_time_after(now_ms(), HOLD_LIMIT_MS);
+            }
             continue;
         }
         deliver_dev(&d);

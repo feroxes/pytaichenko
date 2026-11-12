@@ -141,20 +141,24 @@ static void push(const char *json)
     fp_push(&F, json);
 }
 
+static void transcript(const char *type, const char *text)
+{
+    size_t len = strlen(text) + 128;
+    char *json = malloc(len);
+    TEST_ASSERT_NOT_NULL(json);
+    snprintf(json, len, "{\"type\":\"%s\",\"delta\":\"%s\",\"start_ms\":0,\"end_ms\":200}", type, text);
+    push(json);
+    free(json);
+}
+
 static void heard(const char *text)
 {
-    char json[256];
-    snprintf(json, sizeof(json), "{\"type\":\"session.input_transcript.delta\",\"delta\":\"%s\",\"start_ms\":0,\"end_ms\":200}",
-             text);
-    push(json);
+    transcript("session.input_transcript.delta", text);
 }
 
 static void said(const char *text)
 {
-    char json[256];
-    snprintf(json, sizeof(json), "{\"type\":\"session.output_transcript.delta\",\"delta\":\"%s\",\"start_ms\":0,\"end_ms\":200}",
-             text);
-    push(json);
+    transcript("session.output_transcript.delta", text);
 }
 
 static void live(int16_t level, size_t n)
@@ -299,7 +303,7 @@ void test_live_answer_flow(void)
     EXPECT_DEVICES(L, SS, SP, AS, AN);
     TEST_ASSERT_TRUE(last_device()->follow_up);
     TEST_ASSERT_TRUE(pt_convo_follow_up_pending(C));
-    TEST_ASSERT_EQUAL_size_t(7200, fp_played(&F, NULL, 0));
+    TEST_ASSERT_EQUAL_size_t(7200 + 6000, fp_played(&F, NULL, 0));
     TEST_ASSERT_EQUAL_size_t(1, fp_count(&F, FP_PLAY_END));
     TEST_ASSERT_TRUE(log_mentions("turn ended: answered"));
     TEST_ASSERT_TRUE(log_mentions("first audio 0.00 s after speech end"));
@@ -405,7 +409,37 @@ void test_live_short_pause_inside_answer_is_played(void)
     live(3000, 2400);
     audio(0, 600);
     EXPECT_DEVICES(L, SS, SP, AS, AN);
-    TEST_ASSERT_EQUAL_size_t(13200, fp_played(&F, NULL, 0));
+    TEST_ASSERT_EQUAL_size_t(6000 + 4800 + 2400 + 6000, fp_played(&F, NULL, 0));
+}
+
+void test_live_long_pause_plays_a_quarter_second_then_replays_the_rest(void)
+{
+    start();
+    ask("Привіт");
+    audio(3000, 300);
+    audio(0, 300);
+    TEST_ASSERT_EQUAL_size_t(7200 + 6000, fp_played(&F, NULL, 0));
+    audio(3000, 300);
+    TEST_ASSERT_EQUAL_size_t(7200 + 7200 + 7200, fp_played(&F, NULL, 0));
+    audio(0, 600);
+    EXPECT_DEVICES(L, SS, SP, AS, AN);
+    TEST_ASSERT_EQUAL_size_t(7200 + 7200 + 7200 + 6000, fp_played(&F, NULL, 0));
+}
+
+void test_live_turn_adopts_a_prebuffering_segment(void)
+{
+    answered_first_turn();
+    live(3000, 2400);
+    TEST_ASSERT_EQUAL_size_t(7200 + 6000, fp_played(&F, NULL, 0));
+    start();
+    EXPECT_DEVICES(L, SS, SP, AS, AN, L, SP, AS);
+    audio(3000, 300);
+    audio(0, 600);
+    EXPECT_DEVICES(L, SS, SP, AS, AN, L, SP, AS, AN);
+    TEST_ASSERT_TRUE(last_device()->follow_up);
+    TEST_ASSERT_EQUAL_size_t(2400 + 7200 + 6000, fp_played_before_end(&F, 1));
+    advance(3000);
+    EXPECT_DEVICES(L, SS, SP, AS, AN, L, SP, AS, AN);
 }
 
 void test_live_two_part_answer(void)
@@ -415,7 +449,7 @@ void test_live_two_part_answer(void)
     audio(3000, 300);
     audio(0, 600);
     EXPECT_DEVICES(L, SS, SP, AS, AN, L, SP, AS, AN);
-    TEST_ASSERT_EQUAL_size_t(7200, fp_played_before_end(&F, 1));
+    TEST_ASSERT_EQUAL_size_t(7200 + 6000, fp_played_before_end(&F, 1));
     TEST_ASSERT_EQUAL_size_t(2, fp_count(&F, FP_PLAY_END));
     TEST_ASSERT_TRUE(last_device()->follow_up);
 }
@@ -426,7 +460,7 @@ void test_live_answer_between_turns_is_played(void)
     audio(3000, 300);
     audio(0, 600);
     EXPECT_DEVICES(L, SS, SP, AS, AN);
-    TEST_ASSERT_EQUAL_size_t(14400, fp_played(&F, NULL, 0));
+    TEST_ASSERT_EQUAL_size_t(2 * (7200 + 6000), fp_played(&F, NULL, 0));
     TEST_ASSERT_EQUAL_size_t(2, fp_count(&F, FP_PLAY_END));
     TEST_ASSERT_TRUE(pt_convo_follow_up_pending(C));
 }
@@ -514,7 +548,7 @@ void test_live_end_tool_while_speaking(void)
     TEST_ASSERT_TRUE(log_mentions("turn ended: ended by model"));
     TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.close", 1));
     TEST_ASSERT_FALSE(fp_live(&F, 1));
-    TEST_ASSERT_EQUAL_size_t(7200, fp_played(&F, NULL, 0));
+    TEST_ASSERT_EQUAL_size_t(7200 + 6000, fp_played(&F, NULL, 0));
 }
 
 void test_live_end_tool_silent(void)
@@ -522,21 +556,33 @@ void test_live_end_tool_silent(void)
     start();
     ask("Дякую, все");
     tool("e1", "end_conversation", "{}");
-    advance(1400);
-    EXPECT_DEVICES(L, SS, SP);
-    advance(100);
     EXPECT_DEVICES(L, SS, SP, AN);
+    TEST_ASSERT_FALSE(last_device()->follow_up);
+    TEST_ASSERT_TRUE(log_mentions("turn ended: ended by model"));
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "response.item.create", 1));
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "response.create", 1));
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.close", 1));
+    TEST_ASSERT_FALSE(fp_live(&F, 1));
+}
+
+void test_live_end_tool_in_follow_up_ends_at_once(void)
+{
+    answered_first_turn();
+    start();
+    advance(500);
+    tool("e1", "end_conversation", "{}");
+    EXPECT_DEVICES(L, SS, SP, AS, AN, L, AN);
     TEST_ASSERT_FALSE(last_device()->follow_up);
     TEST_ASSERT_TRUE(log_mentions("turn ended: ended by model"));
     TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.close", 1));
     TEST_ASSERT_FALSE(fp_live(&F, 1));
+    TEST_ASSERT_FALSE(pt_convo_follow_up_pending(C));
 }
 
 void test_live_end_tool_between_turns(void)
 {
     answered_first_turn();
     tool("e1", "end_conversation", "{}");
-    advance(1500);
     EXPECT_DEVICES(L, SS, SP, AS, AN, AN);
     TEST_ASSERT_FALSE(last_device()->follow_up);
     TEST_ASSERT_FALSE(pt_convo_follow_up_pending(C));
@@ -650,6 +696,164 @@ void test_live_history_seeded_next_conversation(void)
     cJSON_Delete(root);
 }
 
+static cJSON *start_input(int conn)
+{
+    cJSON *root = cJSON_Parse(sent_json("session.start", conn, 0));
+    TEST_ASSERT_NOT_NULL(root);
+    cJSON *input = cJSON_DetachItemFromObjectCaseSensitive(cJSON_GetObjectItemCaseSensitive(root, "session"), "input");
+    cJSON_Delete(root);
+    return input;
+}
+
+static const char *item_text(const cJSON *item)
+{
+    const cJSON *content = cJSON_GetObjectItemCaseSensitive(item, "content");
+    const cJSON *text = cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(content, 0), "text");
+    TEST_ASSERT_TRUE(cJSON_IsString(text));
+    return text->valuestring;
+}
+
+static const char *item_role(const cJSON *item)
+{
+    return cJSON_GetObjectItemCaseSensitive(item, "role")->valuestring;
+}
+
+static size_t utf8_chars(const char *s)
+{
+    size_t n = 0;
+    const unsigned char *p = (const unsigned char *)s;
+    while (*p != 0) {
+        size_t more = *p < 0x80 ? 0 : (*p & 0xE0) == 0xC0 ? 1 : (*p & 0xF0) == 0xE0 ? 2 : (*p & 0xF8) == 0xF0 ? 3 : 9;
+        TEST_ASSERT_TRUE(more < 9);
+        p++;
+        for (size_t k = 0; k < more; k++, p++) {
+            TEST_ASSERT_EQUAL_HEX8(0x80, *p & 0xC0);
+        }
+        n++;
+    }
+    return n;
+}
+
+static char *cyrillic(const char *prefix, size_t count)
+{
+    size_t len = strlen(prefix) + count * 2 + 1;
+    char *out = malloc(len);
+    TEST_ASSERT_NOT_NULL(out);
+    strcpy(out, prefix);
+    for (size_t i = 0; i < count; i++) {
+        strcat(out, "ж");
+    }
+    return out;
+}
+
+void test_live_history_keeps_the_newest_24_messages_and_4000_characters(void)
+{
+    start();
+    for (int i = 0; i < 13; i++) {
+        if (i > 0) {
+            start();
+        }
+        char tag[16];
+        snprintf(tag, sizeof(tag), "q%02d ", i);
+        char *q = cyrillic(tag, 196);
+        heard(q);
+        free(q);
+        advance(800);
+        snprintf(tag, sizeof(tag), "a%02d ", i);
+        char *a = cyrillic(tag, 196);
+        said(a);
+        free(a);
+        reply(300);
+    }
+    stop();
+    start();
+    cJSON *input = start_input(2);
+    TEST_ASSERT_TRUE(cJSON_IsArray(input));
+    int n = cJSON_GetArraySize(input);
+    TEST_ASSERT_EQUAL_INT(20, n);
+    size_t total = 0;
+    for (int i = 0; i < n; i++) {
+        const cJSON *item = cJSON_GetArrayItem(input, i);
+        total += utf8_chars(item_text(item));
+    }
+    TEST_ASSERT_TRUE(total <= 4000);
+    TEST_ASSERT_EQUAL_STRING_LEN("q03 ", item_text(cJSON_GetArrayItem(input, 0)), 4);
+    TEST_ASSERT_EQUAL_STRING("user", item_role(cJSON_GetArrayItem(input, 0)));
+    TEST_ASSERT_EQUAL_STRING_LEN("a12 ", item_text(cJSON_GetArrayItem(input, n - 1)), 4);
+    TEST_ASSERT_EQUAL_STRING("assistant", item_role(cJSON_GetArrayItem(input, n - 1)));
+    cJSON_Delete(input);
+}
+
+void test_live_history_count_limit_is_24(void)
+{
+    start();
+    for (int i = 0; i < 13; i++) {
+        if (i > 0) {
+            start();
+        }
+        char text[16];
+        snprintf(text, sizeof(text), "q%02d", i);
+        heard(text);
+        advance(800);
+        snprintf(text, sizeof(text), "a%02d", i);
+        said(text);
+        reply(300);
+    }
+    stop();
+    start();
+    cJSON *input = start_input(2);
+    TEST_ASSERT_EQUAL_INT(24, cJSON_GetArraySize(input));
+    TEST_ASSERT_EQUAL_STRING("q01", item_text(cJSON_GetArrayItem(input, 0)));
+    TEST_ASSERT_EQUAL_STRING("a12", item_text(cJSON_GetArrayItem(input, 23)));
+    cJSON_Delete(input);
+}
+
+void test_live_long_text_is_cut_on_a_character_boundary(void)
+{
+    start();
+    char *q = cyrillic("a", 2100);
+    heard(q);
+    free(q);
+    advance(800);
+    stop();
+    start();
+    cJSON *input = start_input(2);
+    TEST_ASSERT_EQUAL_INT(1, cJSON_GetArraySize(input));
+    const char *text = item_text(cJSON_GetArrayItem(input, 0));
+    TEST_ASSERT_EQUAL_size_t(3999, strlen(text));
+    TEST_ASSERT_EQUAL_size_t(2000, utf8_chars(text));
+    cJSON_Delete(input);
+}
+
+void test_live_late_answer_text_stays_with_its_answer(void)
+{
+    start();
+    ask("Яка столиця Франції?");
+    live(3000, 2400);
+    said("Париж");
+    audio(3000, 200);
+    audio(0, 600);
+    said(", це Франція.");
+    start();
+    ask("А Німеччини?");
+    said("Берлін.");
+    reply(300);
+    start();
+    ask("А Італії?");
+    said("Рим");
+    audio(3000, 300);
+    stop();
+    start();
+    cJSON *input = start_input(2);
+    TEST_ASSERT_EQUAL_INT(5, cJSON_GetArraySize(input));
+    TEST_ASSERT_EQUAL_STRING("Яка столиця Франції?", item_text(cJSON_GetArrayItem(input, 0)));
+    TEST_ASSERT_EQUAL_STRING("Париж, це Франція.", item_text(cJSON_GetArrayItem(input, 1)));
+    TEST_ASSERT_EQUAL_STRING("А Німеччини?", item_text(cJSON_GetArrayItem(input, 2)));
+    TEST_ASSERT_EQUAL_STRING("Берлін.", item_text(cJSON_GetArrayItem(input, 3)));
+    TEST_ASSERT_EQUAL_STRING("А Італії?", item_text(cJSON_GetArrayItem(input, 4)));
+    cJSON_Delete(input);
+}
+
 void test_live_stop_button(void)
 {
     start();
@@ -699,7 +903,6 @@ void test_live_never_sends_realtime_messages(void)
     mic();
     ask("Дякую, все");
     tool("e1", "end_conversation", "{}");
-    advance(2000);
     EXPECT_DEVICES(L, SS, SP, AS, AN, L, SS, SP, AN);
     start();
     stop();
@@ -775,6 +978,8 @@ int main(void)
     RUN_TEST(test_live_no_keepalive_while_listening);
     RUN_TEST(test_live_prebuffer);
     RUN_TEST(test_live_short_pause_inside_answer_is_played);
+    RUN_TEST(test_live_long_pause_plays_a_quarter_second_then_replays_the_rest);
+    RUN_TEST(test_live_turn_adopts_a_prebuffering_segment);
     RUN_TEST(test_live_two_part_answer);
     RUN_TEST(test_live_answer_between_turns_is_played);
     RUN_TEST(test_live_follow_up_no_speech_ends_and_closes);
@@ -783,6 +988,7 @@ int main(void)
     RUN_TEST(test_live_unknown_tool_reports_error);
     RUN_TEST(test_live_end_tool_while_speaking);
     RUN_TEST(test_live_end_tool_silent);
+    RUN_TEST(test_live_end_tool_in_follow_up_ends_at_once);
     RUN_TEST(test_live_end_tool_between_turns);
     RUN_TEST(test_live_session_closed_mid_answer_fails);
     RUN_TEST(test_live_socket_closed_mid_turn_fails);
@@ -791,6 +997,10 @@ int main(void)
     RUN_TEST(test_live_answer_limit_fails);
     RUN_TEST(test_live_heard_logged_when_enabled);
     RUN_TEST(test_live_history_seeded_next_conversation);
+    RUN_TEST(test_live_history_keeps_the_newest_24_messages_and_4000_characters);
+    RUN_TEST(test_live_history_count_limit_is_24);
+    RUN_TEST(test_live_long_text_is_cut_on_a_character_boundary);
+    RUN_TEST(test_live_late_answer_text_stays_with_its_answer);
     RUN_TEST(test_live_stop_button);
     RUN_TEST(test_live_stop_between_turns_closes);
     RUN_TEST(test_live_overflow_cuts_and_closes);

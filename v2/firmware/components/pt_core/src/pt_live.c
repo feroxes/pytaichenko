@@ -7,10 +7,10 @@
 #define UNAVAILABLE "openai-unavailable"
 #define START_FAILED "start-failed"
 #define QUIET_S 0.8f
-#define END_DELAY_S 1.5f
 #define SILENT_LEVEL 2
 #define SEGMENT_END_SAMPLES 12000u
 #define PREBUFFER_SAMPLES 6000u
+#define PASS_ZERO_SAMPLES 6000u
 #define KEEP_MS 100u
 #define KEEP_SAMPLES 2400u
 #define TEXT_CAP 4000u
@@ -63,10 +63,10 @@ struct pt_live {
     size_t pre_n;
     uint64_t played;
     text_t answer;
+    bool answer_tail;
     msg_t hist[HISTORY_MAX];
     size_t hist_n;
     pt_slot_t seg_limit;
-    pt_slot_t end;
     pt_slot_t keep;
     pt_slot_t forget;
 };
@@ -135,19 +135,8 @@ static void drop_oldest(pt_live_t *l)
     l->hist_n--;
 }
 
-static void remember(pt_live_t *l, bool user, text_t *t)
+static void trim_history(pt_live_t *l)
 {
-    if (t->len == 0) {
-        return;
-    }
-    if (l->hist_n == HISTORY_MAX) {
-        drop_oldest(l);
-    }
-    l->hist[l->hist_n].user = user;
-    l->hist[l->hist_n].text = t->buf;
-    l->hist_n++;
-    t->buf = NULL;
-    t->len = 0;
     size_t total = 0;
     for (size_t i = 0; i < l->hist_n; i++) {
         total += chars(l->hist[i].text);
@@ -158,12 +147,47 @@ static void remember(pt_live_t *l, bool user, text_t *t)
     }
 }
 
+static bool remember(pt_live_t *l, bool user, text_t *t)
+{
+    if (t->len == 0) {
+        return false;
+    }
+    if (l->hist_n == HISTORY_MAX) {
+        drop_oldest(l);
+    }
+    l->hist[l->hist_n].user = user;
+    l->hist[l->hist_n].text = t->buf;
+    l->hist_n++;
+    l->answer_tail = false;
+    t->buf = NULL;
+    t->len = 0;
+    trim_history(l);
+    return true;
+}
+
+static void on_said(pt_live_t *l, const char *text)
+{
+    if (l->seg_on || !l->answer_tail || l->hist_n == 0) {
+        text_add(&l->answer, text);
+        return;
+    }
+    msg_t *last = &l->hist[l->hist_n - 1];
+    text_t tail = {last->text, strlen(last->text)};
+    text_add(&tail, text);
+    last->text = tail.buf;
+    trim_history(l);
+    if (l->hist_n == 0) {
+        l->answer_tail = false;
+    }
+}
+
 static void forget_history(pt_live_t *l)
 {
     for (size_t i = 0; i < l->hist_n; i++) {
         free(l->hist[i].text);
     }
     l->hist_n = 0;
+    l->answer_tail = false;
     l->forget.on = false;
 }
 
@@ -279,6 +303,7 @@ static void seg_drop(pt_live_t *l)
         return;
     }
     seg_clear(l);
+    text_clear(&l->answer);
     play_end(l);
 }
 
@@ -312,7 +337,7 @@ static void end_convo(pt_live_t *l, uint32_t now_ms)
     l->follow_up = false;
     l->follow_ups = 0;
     l->ending = false;
-    l->end.on = false;
+    l->answer_tail = false;
     l->keep.on = false;
     pt_session_t *s = session(l);
     pt_session_abort(s);
@@ -356,7 +381,6 @@ static void fail(pt_live_t *l, const char *code, uint32_t now_ms)
 
 static void finish_ending(pt_live_t *l, uint32_t now_ms)
 {
-    l->end.on = false;
     if (l->turn.active) {
         end_turn(l, "ended by model", PT_DEV_ANSWERED, NULL, false, now_ms);
         return;
@@ -383,6 +407,19 @@ static void speech_stopped(pt_live_t *l, uint32_t now_ms)
     pt_slot_arm(&t->arm, now_ms, pt_session_timing(session(l))->response_timeout_s);
 }
 
+static void own_segment(pt_live_t *l)
+{
+    live_turn_t *t = &l->turn;
+    if (!t->stopped_sent) {
+        t->stopped_sent = true;
+        pt_io_device(l->io, PT_DEV_SPEECH_STOPPED, false, NULL);
+    }
+    t->phase = PH_ANSWERING;
+    t->arm.on = false;
+    t->quiet.on = false;
+    pt_io_device(l->io, PT_DEV_ANSWER_STREAMING, false, NULL);
+}
+
 static void seg_begin(pt_live_t *l, uint32_t now_ms)
 {
     l->seg_on = true;
@@ -391,6 +428,7 @@ static void seg_begin(pt_live_t *l, uint32_t now_ms)
     l->pre_n = 0;
     l->pre = malloc(PREBUFFER_SAMPLES * sizeof(int16_t));
     l->seg_playing = l->pre == NULL;
+    l->answer_tail = false;
     pt_slot_arm(&l->seg_limit, now_ms, pt_session_timing(session(l))->answer_max_s);
     live_turn_t *t = &l->turn;
     if (!t->active) {
@@ -407,14 +445,7 @@ static void seg_begin(pt_live_t *l, uint32_t now_ms)
         pt_log_add(l->io->log, log_time(now_ms), "first audio %.2f s after turn start",
                    (double)(uint32_t)(now_ms - t->started_at) / 1000.0);
     }
-    if (!t->stopped_sent) {
-        t->stopped_sent = true;
-        pt_io_device(l->io, PT_DEV_SPEECH_STOPPED, false, NULL);
-    }
-    t->phase = PH_ANSWERING;
-    t->arm.on = false;
-    t->quiet.on = false;
-    pt_io_device(l->io, PT_DEV_ANSWER_STREAMING, false, NULL);
+    own_segment(l);
 }
 
 static void seg_end(pt_live_t *l, uint32_t now_ms)
@@ -428,13 +459,13 @@ static void seg_end(pt_live_t *l, uint32_t now_ms)
     live_turn_t *t = &l->turn;
     if (t->active && t->phase == PH_ANSWERING) {
         remember(l, true, &t->heard);
-        remember(l, false, &l->answer);
+        l->answer_tail = remember(l, false, &l->answer);
         bool more = !l->ending && l->follow_ups < pt_session_timing(session(l))->max_follow_ups;
         const char *reason = l->ending ? "ended by model" : more ? "answered" : "answered, follow-up limit reached";
         end_turn(l, reason, PT_DEV_ANSWERED, NULL, more, now_ms);
         return;
     }
-    remember(l, false, &l->answer);
+    l->answer_tail = remember(l, false, &l->answer);
     if (l->ending) {
         finish_ending(l, now_ms);
     }
@@ -443,6 +474,11 @@ static void seg_end(pt_live_t *l, uint32_t now_ms)
 static bool silent(int16_t x)
 {
     return x >= -SILENT_LEVEL && x <= SILENT_LEVEL;
+}
+
+static size_t held_zeros(const pt_live_t *l)
+{
+    return l->zero_run > PASS_ZERO_SAMPLES ? l->zero_run - PASS_ZERO_SAMPLES : 0;
 }
 
 static void on_audio(pt_live_t *l, const int16_t *pcm, size_t n, uint32_t now_ms)
@@ -458,27 +494,29 @@ static void on_audio(pt_live_t *l, const int16_t *pcm, size_t n, uint32_t now_ms
             }
             seg_begin(l, now_ms);
         }
-        size_t loud = i;
+        size_t from = i;
         bool ended = false;
         for (; i < n && !ended; i++) {
             if (!silent(pcm[i])) {
-                if (l->zero_run > 0) {
-                    seg_zeros(l, l->zero_run);
-                    l->zero_run = 0;
-                    loud = i;
+                size_t held = held_zeros(l);
+                if (held > 0) {
+                    seg_zeros(l, held);
+                    from = i;
                 }
-            } else {
-                if (l->zero_run == 0 && i > loud) {
-                    seg_out(l, pcm + loud, i - loud);
+                l->zero_run = 0;
+            } else if (++l->zero_run > PASS_ZERO_SAMPLES) {
+                if (i > from) {
+                    seg_out(l, pcm + from, i - from);
                 }
-                l->zero_run++;
+                from = i + 1;
                 ended = l->zero_run >= SEGMENT_END_SAMPLES;
             }
         }
+        if (i > from) {
+            seg_out(l, pcm + from, i - from);
+        }
         if (ended) {
             seg_end(l, now_ms);
-        } else if (l->zero_run == 0 && i > loud) {
-            seg_out(l, pcm + loud, i - loud);
         }
     }
 }
@@ -540,15 +578,16 @@ static void on_tool(pt_live_t *l, const pt_rt_event_t *e, uint32_t now_ms)
         send_failed(l, now_ms);
         return;
     }
+    if (ending) {
+        l->ending = true;
+        if (!l->seg_on) {
+            finish_ending(l, now_ms);
+        }
+        return;
+    }
     live_turn_t *t = &l->turn;
     if (t->active && t->phase == PH_THINKING) {
         pt_slot_arm(&t->arm, now_ms, pt_session_timing(session(l))->response_timeout_s);
-    }
-    if (ending && !l->ending) {
-        l->ending = true;
-        if (!l->seg_on) {
-            pt_slot_arm(&l->end, now_ms, END_DELAY_S);
-        }
     }
 }
 
@@ -631,6 +670,7 @@ void pt_live_start(pt_live_t *l, uint32_t now_ms)
     }
     l->follow_ups = follow_up ? l->follow_ups + 1 : 0;
     l->follow_up = false;
+    l->answer_tail = false;
     pt_session_cancel_idle(s);
     if (l->seg_on) {
         pt_speaker_path_free(speaker);
@@ -647,10 +687,15 @@ void pt_live_start(pt_live_t *l, uint32_t now_ms)
     pt_early_init(&t->early, fresh->timing.first_turn_s);
     pt_log_add(l->io->log, log_time(now_ms), "turn started (%s)", follow_up ? "follow-up" : "first turn");
     pt_io_device(l->io, PT_DEV_LISTENING, false, NULL);
-    give_history(l);
     pt_session_for_turn(s, false, now_ms);
-    if (t->active && t->ready) {
-        pt_session_set_history(s, NULL, 0);
+    if (!t->active) {
+        return;
+    }
+    if (!t->ready) {
+        seg_drop(l);
+        give_history(l);
+    } else if (l->seg_on) {
+        own_segment(l);
     }
 }
 
@@ -724,7 +769,7 @@ bool pt_live_close_idle(pt_live_t *l, uint32_t now_ms)
 
 static pt_slot_t *earliest(pt_live_t *l)
 {
-    pt_slot_t *list[] = {&l->end, &l->seg_limit, &l->turn.arm, &l->turn.quiet, &l->keep, &l->forget};
+    pt_slot_t *list[] = {&l->seg_limit, &l->turn.arm, &l->turn.quiet, &l->keep, &l->forget};
     pt_slot_t *best = NULL;
     for (size_t i = 0; i < sizeof(list) / sizeof(list[0]); i++) {
         if (list[i]->on && (best == NULL || pt_time_before(list[i]->at, best->at))) {
@@ -749,11 +794,7 @@ void pt_live_fire(pt_live_t *l, uint32_t now_ms)
     uint32_t at = slot->at;
     slot->on = false;
     live_turn_t *t = &l->turn;
-    if (slot == &l->end) {
-        if (!l->seg_on) {
-            finish_ending(l, now_ms);
-        }
-    } else if (slot == &l->seg_limit) {
+    if (slot == &l->seg_limit) {
         pt_log_add(l->io->log, log_time(now_ms), "answer limit reached");
         fail(l, "timeout", now_ms);
     } else if (slot == &t->quiet) {
@@ -820,7 +861,7 @@ void pt_live_on_event(pt_live_t *l, const pt_rt_event_t *e, uint32_t now_ms)
         on_heard(l, e->text, now_ms);
         break;
     case PT_RT_OUTPUT_DELTA:
-        text_add(&l->answer, e->text);
+        on_said(l, e->text);
         break;
     case PT_RT_TOOL_CALL:
         on_tool(l, e, now_ms);

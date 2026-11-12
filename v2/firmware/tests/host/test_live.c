@@ -612,16 +612,90 @@ void test_live_socket_closed_mid_turn_fails(void)
     TEST_ASSERT_EQUAL_STRING("openai-unavailable", last_device()->code);
 }
 
-void test_live_response_timeout_fails(void)
+static void assert_no_answer_end(void)
+{
+    TEST_ASSERT_FALSE(last_device()->follow_up);
+    TEST_ASSERT_TRUE(log_mentions("turn ended: no answer"));
+    TEST_ASSERT_EQUAL_size_t(0, fp_device_count(&F, FA));
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.close", 1));
+    TEST_ASSERT_FALSE(fp_live(&F, 1));
+    TEST_ASSERT_FALSE(pt_convo_follow_up_pending(C));
+}
+
+void test_live_silent_model_ends_with_no_answer(void)
 {
     start();
     ask("Привіт");
     advance(4900);
     EXPECT_DEVICES(L, SS, SP);
     advance(100);
-    EXPECT_DEVICES(L, SS, SP, FA);
-    TEST_ASSERT_EQUAL_STRING("timeout", last_device()->code);
-    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.close", 1));
+    EXPECT_DEVICES(L, SS, SP, EN);
+    assert_no_answer_end();
+}
+
+void test_live_background_speech_past_the_cap_ends(void)
+{
+    start();
+    heard("а");
+    for (int i = 0; i < 80; i++) {
+        advance(200);
+        heard("а");
+    }
+    EXPECT_DEVICES(L, SS, SP, EN);
+    TEST_ASSERT_EQUAL_UINT32(1000 + 10000 + 5000, fp_time_of(&F, EN, 0));
+    assert_no_answer_end();
+}
+
+void test_live_resumed_speech_goes_back_to_speaking_under_the_cap(void)
+{
+    start();
+    heard("Яка");
+    advance(800);
+    EXPECT_DEVICES(L, SS, SP);
+    for (int i = 0; i < 11; i++) {
+        advance(500);
+        heard("ще");
+    }
+    EXPECT_DEVICES(L, SS, SP);
+    TEST_ASSERT_TRUE(log_mentions("speech resumed"));
+    for (int i = 0; i < 20; i++) {
+        advance(500);
+        heard("ще");
+    }
+    EXPECT_DEVICES(L, SS, SP, EN);
+    TEST_ASSERT_EQUAL_UINT32(1000 + 10000 + 5000, fp_time_of(&F, EN, 0));
+    assert_no_answer_end();
+}
+
+void test_live_resumed_speech_then_answer(void)
+{
+    start();
+    ask("Яка");
+    heard(" столиця?");
+    advance(799);
+    TEST_ASSERT_EQUAL_size_t(1, fp_device_count(&F, SP));
+    advance(1);
+    reply(300);
+    EXPECT_DEVICES(L, SS, SP, AS, AN);
+    TEST_ASSERT_TRUE(last_device()->follow_up);
+    TEST_ASSERT_TRUE(log_mentions("first audio 0.00 s after speech end"));
+}
+
+void test_live_answer_audio_stall_ends_the_segment(void)
+{
+    start();
+    ask("Привіт");
+    audio(3000, 300);
+    EXPECT_DEVICES(L, SS, SP, AS);
+    advance(1899);
+    EXPECT_DEVICES(L, SS, SP, AS);
+    advance(1);
+    EXPECT_DEVICES(L, SS, SP, AS, AN);
+    TEST_ASSERT_TRUE(last_device()->follow_up);
+    TEST_ASSERT_EQUAL_size_t(7200, fp_played(&F, NULL, 0));
+    TEST_ASSERT_EQUAL_size_t(1, fp_count(&F, FP_PLAY_END));
+    TEST_ASSERT_TRUE(log_mentions("answer audio stopped for 2 s"));
+    TEST_ASSERT_TRUE(log_mentions("turn ended: answered"));
 }
 
 void test_live_max_speech_counts_as_speech_stopped(void)
@@ -992,7 +1066,11 @@ int main(void)
     RUN_TEST(test_live_end_tool_between_turns);
     RUN_TEST(test_live_session_closed_mid_answer_fails);
     RUN_TEST(test_live_socket_closed_mid_turn_fails);
-    RUN_TEST(test_live_response_timeout_fails);
+    RUN_TEST(test_live_silent_model_ends_with_no_answer);
+    RUN_TEST(test_live_background_speech_past_the_cap_ends);
+    RUN_TEST(test_live_resumed_speech_goes_back_to_speaking_under_the_cap);
+    RUN_TEST(test_live_resumed_speech_then_answer);
+    RUN_TEST(test_live_answer_audio_stall_ends_the_segment);
     RUN_TEST(test_live_max_speech_counts_as_speech_stopped);
     RUN_TEST(test_live_answer_limit_fails);
     RUN_TEST(test_live_heard_logged_when_enabled);

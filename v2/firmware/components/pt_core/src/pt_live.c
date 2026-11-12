@@ -11,6 +11,7 @@
 #define SEGMENT_END_SAMPLES 12000u
 #define PREBUFFER_SAMPLES 6000u
 #define PASS_ZERO_SAMPLES 6000u
+#define STALL_S 2.0f
 #define KEEP_MS 100u
 #define KEEP_SAMPLES 2400u
 #define TEXT_CAP 4000u
@@ -40,7 +41,10 @@ typedef struct {
     arm_t arm_kind;
     pt_slot_t arm;
     pt_slot_t quiet;
+    pt_slot_t cap;
+    bool cap_set;
     uint32_t started_at;
+    uint32_t speech_start;
     uint32_t speech_end;
     pt_mic_path_t *mic;
     pt_early_t early;
@@ -67,6 +71,7 @@ struct pt_live {
     msg_t hist[HISTORY_MAX];
     size_t hist_n;
     pt_slot_t seg_limit;
+    pt_slot_t stall;
     pt_slot_t keep;
     pt_slot_t forget;
 };
@@ -295,6 +300,7 @@ static void seg_clear(pt_live_t *l)
     l->seg_playing = false;
     l->zero_run = 0;
     l->seg_limit.on = false;
+    l->stall.on = false;
 }
 
 static void seg_drop(pt_live_t *l)
@@ -393,18 +399,25 @@ static void finish_ending(pt_live_t *l, uint32_t now_ms)
 static void speech_stopped(pt_live_t *l, uint32_t now_ms)
 {
     live_turn_t *t = &l->turn;
+    const pt_timing_t *timing = pt_session_timing(session(l));
+    if (!t->cap_set) {
+        t->cap_set = true;
+        pt_slot_arm(&t->cap, t->speech_start, timing->max_speech_s + timing->response_timeout_s);
+    }
     t->phase = PH_THINKING;
     t->quiet.on = false;
     pt_log_add(l->io->log, log_time(now_ms), "speech stopped");
     if (pt_session_fresh(session(l))->openai.log_heard) {
         pt_log_add(l->io->log, log_time(now_ms), "heard: %s", t->heard.buf != NULL ? t->heard.buf : "");
     }
-    t->stopped_sent = true;
     t->speech_end = now_ms;
     t->speech_end_set = true;
-    pt_io_device(l->io, PT_DEV_SPEECH_STOPPED, false, NULL);
+    if (!t->stopped_sent) {
+        t->stopped_sent = true;
+        pt_io_device(l->io, PT_DEV_SPEECH_STOPPED, false, NULL);
+    }
     t->arm_kind = ARM_RESPONSE;
-    pt_slot_arm(&t->arm, now_ms, pt_session_timing(session(l))->response_timeout_s);
+    pt_slot_arm(&t->arm, now_ms, timing->response_timeout_s);
 }
 
 static void own_segment(pt_live_t *l)
@@ -417,6 +430,7 @@ static void own_segment(pt_live_t *l)
     t->phase = PH_ANSWERING;
     t->arm.on = false;
     t->quiet.on = false;
+    t->cap.on = false;
     pt_io_device(l->io, PT_DEV_ANSWER_STREAMING, false, NULL);
 }
 
@@ -519,6 +533,9 @@ static void on_audio(pt_live_t *l, const int16_t *pcm, size_t n, uint32_t now_ms
             seg_end(l, now_ms);
         }
     }
+    if (l->seg_on) {
+        pt_slot_arm(&l->stall, now_ms, STALL_S);
+    }
 }
 
 static void on_heard(pt_live_t *l, const char *text, uint32_t now_ms)
@@ -533,6 +550,7 @@ static void on_heard(pt_live_t *l, const char *text, uint32_t now_ms)
     case PH_LISTENING:
         pt_log_add(l->io->log, log_time(now_ms), "speech started");
         t->phase = PH_SPEAKING;
+        t->speech_start = now_ms;
         pt_io_device(l->io, PT_DEV_SPEECH_STARTED, false, NULL);
         t->arm_kind = ARM_SPEECH;
         pt_slot_arm(&t->arm, now_ms, timing->max_speech_s);
@@ -542,7 +560,10 @@ static void on_heard(pt_live_t *l, const char *text, uint32_t now_ms)
         pt_slot_arm(&t->quiet, now_ms, QUIET_S);
         break;
     case PH_THINKING:
-        pt_slot_arm(&t->arm, now_ms, timing->response_timeout_s);
+        pt_log_add(l->io->log, log_time(now_ms), "speech resumed");
+        t->phase = PH_SPEAKING;
+        t->arm.on = false;
+        pt_slot_arm(&t->quiet, now_ms, QUIET_S);
         break;
     case PH_ANSWERING:
         break;
@@ -769,7 +790,7 @@ bool pt_live_close_idle(pt_live_t *l, uint32_t now_ms)
 
 static pt_slot_t *earliest(pt_live_t *l)
 {
-    pt_slot_t *list[] = {&l->seg_limit, &l->turn.arm, &l->turn.quiet, &l->keep, &l->forget};
+    pt_slot_t *list[] = {&l->seg_limit, &l->stall, &l->turn.arm, &l->turn.quiet, &l->turn.cap, &l->keep, &l->forget};
     pt_slot_t *best = NULL;
     for (size_t i = 0; i < sizeof(list) / sizeof(list[0]); i++) {
         if (list[i]->on && (best == NULL || pt_time_before(list[i]->at, best->at))) {
@@ -797,6 +818,15 @@ void pt_live_fire(pt_live_t *l, uint32_t now_ms)
     if (slot == &l->seg_limit) {
         pt_log_add(l->io->log, log_time(now_ms), "answer limit reached");
         fail(l, "timeout", now_ms);
+    } else if (slot == &l->stall) {
+        if (l->seg_on) {
+            pt_log_add(l->io->log, log_time(now_ms), "answer audio stopped for 2 s");
+            seg_end(l, now_ms);
+        }
+    } else if (slot == &t->cap) {
+        if (t->active && t->phase != PH_ANSWERING) {
+            end_turn(l, "no answer", PT_DEV_ENDED, NULL, false, now_ms);
+        }
     } else if (slot == &t->quiet) {
         if (t->phase == PH_SPEAKING) {
             speech_stopped(l, now_ms);
@@ -812,7 +842,7 @@ void pt_live_fire(pt_live_t *l, uint32_t now_ms)
                 speech_stopped(l, now_ms);
             }
         } else if (t->phase == PH_THINKING) {
-            fail(l, "timeout", now_ms);
+            end_turn(l, "no answer", PT_DEV_ENDED, NULL, false, now_ms);
         }
     } else if (slot == &l->keep) {
         keep_alive(l, at, now_ms);

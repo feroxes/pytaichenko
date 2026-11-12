@@ -376,7 +376,7 @@ static void run_open(conn_t *c)
 {
     drop_active();
     s_active = c;
-    if (c->dead) {
+    if (c->dead || c->closing) {
         drop_active();
         return;
     }
@@ -585,11 +585,11 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
     for (;;) {
         int64_t left_us = deadline_us - esp_timer_get_time();
         if (left_us <= 0) {
-            return PT_WS_TIMEOUT;
+            return helper_failed ? PT_WS_REJECTED : PT_WS_TIMEOUT;
         }
         probe_item_t item;
         if (xQueueReceive(q, &item, pdMS_TO_TICKS(left_us / 1000 + 1)) != pdTRUE) {
-            return PT_WS_TIMEOUT;
+            return helper_failed ? PT_WS_REJECTED : PT_WS_TIMEOUT;
         }
         if (item.kind == PROBE_CLOSED) {
             return item.why;

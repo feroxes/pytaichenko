@@ -46,6 +46,7 @@ void pt_convo_rt_message(pt_convo_t *c, const char *json, size_t len, uint32_t n
 void pt_convo_rt_closed(pt_convo_t *c, uint32_t now_ms);
 void pt_convo_rt_overflow(pt_convo_t *c, uint32_t now_ms);
 bool pt_convo_close_idle(pt_convo_t *c, uint32_t now_ms);
+void pt_convo_warm(pt_convo_t *c, bool allowed, uint32_t now_ms);
 void pt_convo_tick(pt_convo_t *c, uint32_t now_ms);
 uint32_t pt_convo_next_deadline(const pt_convo_t *c);
 bool pt_convo_follow_up_pending(const pt_convo_t *c);

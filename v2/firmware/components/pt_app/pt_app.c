@@ -590,6 +590,12 @@ static void poll_wifi(void)
     after_core();
 }
 
+static void update_warm(void)
+{
+    pt_convo_warm(s_convo, s_wifi && !atomic_load(&s_hold), now_ms());
+    after_core();
+}
+
 static void wake_apply(bool announce)
 {
     const char *want = s_snap->sound.wake_word;
@@ -799,6 +805,7 @@ static void run_hold(void)
     if (asked == atomic_load(&s_hold_done)) {
         return;
     }
+    update_warm();
     if (atomic_load(&s_hold) && !pt_appstate_in_convo(s_app) && s_rt_open) {
         pt_shell_log("closing the kept OpenAI connection for the update");
         pt_convo_close_idle(s_convo, now_ms());
@@ -846,6 +853,7 @@ static void convo_task(void *arg)
     for (;;) {
         ulTaskNotifyTake(pdTRUE, wait_ticks());
         poll_wifi();
+        update_warm();
         take_settings();
         take_msgs();
         take_inbox();

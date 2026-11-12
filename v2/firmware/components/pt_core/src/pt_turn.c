@@ -639,6 +639,15 @@ static void on_failed(void *ctx, const char *why, uint32_t now_ms)
     }
 }
 
+static void convo_tick_now(pt_convo_t *c, uint32_t now_ms);
+
+static void settle(pt_convo_t *c, uint32_t now_ms)
+{
+    if (c != NULL) {
+        pt_session_warm_sync(c->io.session, now_ms);
+    }
+}
+
 static void on_forget(void *ctx)
 {
     pt_convo_t *c = ctx;
@@ -680,12 +689,12 @@ void pt_convo_free(pt_convo_t *c)
     free(c);
 }
 
-void pt_convo_settings(pt_convo_t *c, const pt_settings_t *s, uint32_t now_ms)
+static void convo_settings_now(pt_convo_t *c, const pt_settings_t *s, uint32_t now_ms)
 {
     if (c == NULL || s == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     pt_session_settings(c->io.session, s);
     c->io.volume = s->sound.volume;
 }
@@ -702,12 +711,12 @@ static void switch_engine(pt_convo_t *c, bool live, uint32_t now_ms)
     c->live = live;
 }
 
-void pt_convo_start(pt_convo_t *c, uint32_t now_ms)
+static void convo_start_now(pt_convo_t *c, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     if (!pt_session_has_settings(c->io.session)) {
         pt_log_add(c->io.log, log_time(now_ms), "could not start a turn: no settings yet");
         c->follow_up = false;
@@ -756,12 +765,12 @@ void pt_convo_start(pt_convo_t *c, uint32_t now_ms)
     }
 }
 
-void pt_convo_stop(pt_convo_t *c, uint32_t now_ms)
+static void convo_stop_now(pt_convo_t *c, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     if (c->live) {
         pt_live_stop(c->lv, now_ms);
         return;
@@ -781,12 +790,12 @@ void pt_convo_stop(pt_convo_t *c, uint32_t now_ms)
     end_turn(c, "stopped by device", PT_DEV_ENDED, NULL, false, t->phase != PH_LISTENING, true, false, now_ms);
 }
 
-void pt_convo_mic(pt_convo_t *c, const int16_t *pcm, size_t n, uint32_t now_ms)
+static void convo_mic_now(pt_convo_t *c, const int16_t *pcm, size_t n, uint32_t now_ms)
 {
     if (c == NULL || pcm == NULL || n == 0) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     if (c->live) {
         pt_live_mic(c->lv, pcm, n, now_ms);
         return;
@@ -810,48 +819,48 @@ void pt_convo_mic(pt_convo_t *c, const int16_t *pcm, size_t n, uint32_t now_ms)
     }
 }
 
-void pt_convo_rt_opened(pt_convo_t *c, uint32_t now_ms)
+static void convo_rt_opened_now(pt_convo_t *c, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     pt_session_rt_opened(c->io.session, now_ms);
 }
 
-void pt_convo_rt_failed(pt_convo_t *c, const char *why, uint32_t now_ms)
+static void convo_rt_failed_now(pt_convo_t *c, const char *why, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     pt_session_rt_failed(c->io.session, why, now_ms);
 }
 
-void pt_convo_rt_message(pt_convo_t *c, const char *json, size_t len, uint32_t now_ms)
+static void convo_rt_message_now(pt_convo_t *c, const char *json, size_t len, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     pt_session_rt_message(c->io.session, json, len, now_ms);
 }
 
-void pt_convo_rt_closed(pt_convo_t *c, uint32_t now_ms)
+static void convo_rt_closed_now(pt_convo_t *c, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     pt_session_rt_closed(c->io.session, now_ms);
 }
 
-bool pt_convo_close_idle(pt_convo_t *c, uint32_t now_ms)
+static bool convo_close_idle_now(pt_convo_t *c, uint32_t now_ms)
 {
     if (c == NULL) {
         return false;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     if (c->live) {
         return pt_live_close_idle(c->lv, now_ms);
     }
@@ -863,12 +872,12 @@ bool pt_convo_close_idle(pt_convo_t *c, uint32_t now_ms)
     return true;
 }
 
-void pt_convo_rt_overflow(pt_convo_t *c, uint32_t now_ms)
+static void convo_rt_overflow_now(pt_convo_t *c, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
     }
-    pt_convo_tick(c, now_ms);
+    convo_tick_now(c, now_ms);
     if (c->live) {
         pt_live_overflow(c->lv, now_ms);
         return;
@@ -923,7 +932,7 @@ static void fire(pt_convo_t *c, pt_slot_t *slot, uint32_t now_ms)
     }
 }
 
-void pt_convo_tick(pt_convo_t *c, uint32_t now_ms)
+static void convo_tick_now(pt_convo_t *c, uint32_t now_ms)
 {
     if (c == NULL) {
         return;
@@ -983,4 +992,80 @@ bool pt_convo_follow_up_pending(const pt_convo_t *c)
         return false;
     }
     return c->live ? pt_live_follow_up_pending(c->lv) : c->follow_up;
+}
+
+void pt_convo_settings(pt_convo_t *c, const pt_settings_t *s, uint32_t now_ms)
+{
+    convo_settings_now(c, s, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_start(pt_convo_t *c, uint32_t now_ms)
+{
+    convo_start_now(c, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_stop(pt_convo_t *c, uint32_t now_ms)
+{
+    convo_stop_now(c, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_mic(pt_convo_t *c, const int16_t *pcm, size_t n, uint32_t now_ms)
+{
+    convo_mic_now(c, pcm, n, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_rt_opened(pt_convo_t *c, uint32_t now_ms)
+{
+    convo_rt_opened_now(c, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_rt_failed(pt_convo_t *c, const char *why, uint32_t now_ms)
+{
+    convo_rt_failed_now(c, why, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_rt_message(pt_convo_t *c, const char *json, size_t len, uint32_t now_ms)
+{
+    convo_rt_message_now(c, json, len, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_rt_closed(pt_convo_t *c, uint32_t now_ms)
+{
+    convo_rt_closed_now(c, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_rt_overflow(pt_convo_t *c, uint32_t now_ms)
+{
+    convo_rt_overflow_now(c, now_ms);
+    settle(c, now_ms);
+}
+
+void pt_convo_tick(pt_convo_t *c, uint32_t now_ms)
+{
+    convo_tick_now(c, now_ms);
+    settle(c, now_ms);
+}
+
+bool pt_convo_close_idle(pt_convo_t *c, uint32_t now_ms)
+{
+    bool closed = convo_close_idle_now(c, now_ms);
+    settle(c, now_ms);
+    return closed;
+}
+
+void pt_convo_warm(pt_convo_t *c, bool allowed, uint32_t now_ms)
+{
+    if (c == NULL) {
+        return;
+    }
+    convo_tick_now(c, now_ms);
+    pt_session_allow_warm(c->io.session, allowed, now_ms);
 }

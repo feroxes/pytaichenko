@@ -751,13 +751,13 @@ void pt_live_start(pt_live_t *l, uint32_t now_ms)
     pt_early_init(&t->early, fresh->timing.first_turn_s);
     pt_log_add(l->io->log, log_time(now_ms), "turn started (%s)", follow_up ? "follow-up" : "first turn");
     pt_io_device(l->io, PT_DEV_LISTENING, false, NULL);
+    give_history(l);
     pt_session_for_turn(s, false, now_ms);
     if (!t->active) {
         return;
     }
     if (!t->ready) {
         seg_drop(l);
-        give_history(l);
     } else if (l->seg_on) {
         own_segment(l);
     }

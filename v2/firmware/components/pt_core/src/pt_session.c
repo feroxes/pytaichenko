@@ -5,8 +5,13 @@
 #include <string.h>
 
 #define MAX_DURATION_MS 0x3FFFFFFFu
+#define WARM_AFTER_MS 2000u
+#define WARM_STABLE_MS 30000u
+#define WARM_STEPS 4
 
-typedef enum { ST_NONE, ST_OPENING, ST_WAIT_CREATED, ST_WAIT_UPDATED, ST_WAIT_STARTED, ST_READY } state_t;
+static const uint32_t WARM_BACKOFF_MS[WARM_STEPS] = {2000u, 10000u, 30000u, 60000u};
+
+typedef enum { ST_NONE, ST_OPENING, ST_WAIT_CREATED, ST_WAIT_UPDATED, ST_WAIT_STARTED, ST_READY, ST_WARMING, ST_WARM } state_t;
 typedef enum { WAIT_NONE, WAIT_OPEN, WAIT_CHECK } waiting_t;
 
 typedef struct {
@@ -31,6 +36,11 @@ struct pt_session {
     waiting_t waiting;
     bool lost;
     bool live;
+    bool warm_allowed;
+    bool from_warm;
+    bool cooldown;
+    unsigned warm_fails;
+    uint32_t warm_since;
     char **hist_role;
     char **hist_text;
     size_t hist_n;
@@ -40,6 +50,7 @@ struct pt_session {
     deadline_t check;
     deadline_t idle;
     deadline_t hold;
+    deadline_t warm;
     deferred_t *head;
     deferred_t *tail;
 };
@@ -128,9 +139,30 @@ pt_session_t *pt_session_new(const pt_port_t *port, pt_log_t *log, const pt_sess
     return s;
 }
 
+static bool warm_state(const pt_session_t *s)
+{
+    return s->state == ST_WARMING || s->state == ST_WARM;
+}
+
+static bool warm_wanted(const pt_session_t *s)
+{
+    return s->warm_allowed && s->have_settings && s->fresh.openai.api_key[0] != '\0' &&
+           pt_rt_is_live(s->fresh.openai.model);
+}
+
+static bool same_target(const pt_settings_t *a, const pt_settings_t *b)
+{
+    return strcmp(a->openai.api_key, b->openai.api_key) == 0 && strcmp(a->openai.model, b->openai.model) == 0;
+}
+
 static void close_connection(pt_session_t *s)
 {
+    if (s->state != ST_NONE && !warm_state(s)) {
+        s->cooldown = true;
+    }
     s->state = ST_NONE;
+    s->from_warm = false;
+    s->warm.on = false;
     s->waiting = WAIT_NONE;
     s->lost = false;
     s->open.on = false;
@@ -226,8 +258,17 @@ static void open_failed(pt_session_t *s, const char *why, uint32_t now_ms)
     }
 }
 
+static void next_gen(pt_session_t *s)
+{
+    s->gen++;
+    if (s->gen == 0) {
+        s->gen = 1;
+    }
+}
+
 static void open_session(pt_session_t *s, uint32_t now_ms)
 {
+    s->warm.on = false;
     if (s->fresh.openai.api_key[0] == '\0') {
         if (s->hooks.failed != NULL) {
             s->hooks.failed(s->hooks.ctx, "the OpenAI API key is not set", now_ms);
@@ -236,17 +277,151 @@ static void open_session(pt_session_t *s, uint32_t now_ms)
     }
     s->used = s->fresh;
     s->live = pt_rt_is_live(s->used.openai.model);
-    s->gen++;
-    if (s->gen == 0) {
-        s->gen = 1;
-    }
+    next_gen(s);
     s->state = ST_OPENING;
     s->waiting = WAIT_OPEN;
     s->lost = false;
+    s->from_warm = false;
     s->model[0] = '\0';
     set_deadline(&s->open, pt_time_after(now_ms, PT_SESSION_CONNECT_TIMEOUT_MS));
     if (s->port.rt_open != NULL) {
         s->port.rt_open(s->port.ctx, &s->used);
+    }
+}
+
+static void start_live(pt_session_t *s, uint32_t now_ms);
+
+static void adopt_warm(pt_session_t *s, uint32_t now_ms)
+{
+    bool open = s->state == ST_WARM;
+    s->used = s->fresh;
+    s->live = true;
+    next_gen(s);
+    s->state = ST_OPENING;
+    s->waiting = WAIT_OPEN;
+    s->lost = false;
+    s->from_warm = open;
+    s->model[0] = '\0';
+    s->warm.on = false;
+    set_deadline(&s->open, pt_time_after(now_ms, PT_SESSION_CONNECT_TIMEOUT_MS));
+    if (open) {
+        pt_log_add(s->log, log_time(now_ms), "starting the live session on the warm connection");
+        start_live(s, now_ms);
+    } else {
+        pt_log_add(s->log, log_time(now_ms), "starting the live session on the warm connection once it opens");
+    }
+}
+
+static void open_warm(pt_session_t *s, uint32_t now_ms)
+{
+    s->used = s->fresh;
+    s->live = true;
+    s->state = ST_WARMING;
+    s->waiting = WAIT_NONE;
+    s->lost = false;
+    s->from_warm = false;
+    set_deadline(&s->warm, pt_time_after(now_ms, PT_SESSION_CONNECT_TIMEOUT_MS));
+    if (s->port.rt_open != NULL) {
+        s->port.rt_open(s->port.ctx, &s->used);
+    }
+}
+
+static void warm_failed(pt_session_t *s, const char *why, uint32_t now_ms)
+{
+    if (s->state == ST_WARM) {
+        uint32_t lived = now_ms - s->warm_since;
+        if (lived >= WARM_STABLE_MS) {
+            s->warm_fails = 0;
+        }
+        pt_log_add(s->log, log_time(now_ms), "warm live connection closed after %u s", (unsigned)(lived / 1000u));
+    }
+    unsigned step = s->warm_fails < WARM_STEPS ? s->warm_fails : WARM_STEPS - 1;
+    uint32_t delay = WARM_BACKOFF_MS[step];
+    if (s->state == ST_WARMING && s->warm_fails == 0) {
+        pt_log_add(s->log, log_time(now_ms), "warm live connection failed: %s; trying again in %u s",
+                   why != NULL && why[0] != '\0' ? why : "unknown", (unsigned)(delay / 1000u));
+    }
+    close_connection(s);
+    if (s->warm_fails < WARM_STEPS) {
+        s->warm_fails++;
+    }
+    set_deadline(&s->warm, pt_time_after(now_ms, delay));
+}
+
+static bool retry_cold(pt_session_t *s, uint32_t now_ms)
+{
+    if (!s->from_warm) {
+        return false;
+    }
+    pt_log_add(s->log, log_time(now_ms), "the warm live connection was lost; opening a new one");
+    close_connection(s);
+    open_session(s, now_ms);
+    return true;
+}
+
+void pt_session_warm_sync(pt_session_t *s, uint32_t now_ms)
+{
+    if (s == NULL) {
+        return;
+    }
+    bool want = warm_wanted(s);
+    if (warm_state(s)) {
+        if (want && same_target(&s->used, &s->fresh)) {
+            return;
+        }
+        pt_log_add(s->log, log_time(now_ms), "closing the warm live connection");
+        close_connection(s);
+        s->warm_fails = 0;
+        if (want) {
+            set_deadline(&s->warm, now_ms);
+        }
+        return;
+    }
+    if (!want) {
+        s->warm.on = false;
+        s->cooldown = false;
+        return;
+    }
+    if (s->state != ST_NONE) {
+        s->warm.on = false;
+        return;
+    }
+    if (s->warm.on) {
+        if (s->warm_fails > 0 && !same_target(&s->used, &s->fresh)) {
+            s->warm_fails = 0;
+            set_deadline(&s->warm, now_ms);
+        }
+        return;
+    }
+    set_deadline(&s->warm, s->cooldown ? pt_time_after(now_ms, WARM_AFTER_MS) : now_ms);
+    s->cooldown = false;
+}
+
+void pt_session_allow_warm(pt_session_t *s, bool allowed, uint32_t now_ms)
+{
+    if (s == NULL) {
+        return;
+    }
+    if (allowed != s->warm_allowed) {
+        s->warm_allowed = allowed;
+        s->warm_fails = 0;
+        s->cooldown = false;
+        if (!warm_state(s)) {
+            s->warm.on = false;
+        }
+    }
+    pt_session_warm_sync(s, now_ms);
+}
+
+static void warm_due(pt_session_t *s, uint32_t now_ms)
+{
+    s->warm.on = false;
+    if (s->state == ST_WARMING) {
+        warm_failed(s, "connect timed out", now_ms);
+        return;
+    }
+    if (s->state == ST_NONE && warm_wanted(s)) {
+        open_warm(s, now_ms);
     }
 }
 
@@ -263,6 +438,13 @@ void pt_session_for_turn(pt_session_t *s, bool cancel_previous, uint32_t now_ms)
 {
     if (s->state != ST_NONE && s->state != ST_READY) {
         pt_session_abort(s);
+    }
+    if (warm_state(s)) {
+        if (pt_rt_is_live(s->fresh.openai.model) && same_target(&s->used, &s->fresh)) {
+            adopt_warm(s, now_ms);
+            return;
+        }
+        close_connection(s);
     }
     if (s->state == ST_READY && pt_settings_session_changed(&s->used, &s->fresh)) {
         pt_log_add(s->log, log_time(now_ms), "settings changed; opening a fresh %s session",
@@ -369,7 +551,7 @@ void pt_session_close_when_idle(pt_session_t *s, float delay_s, uint32_t now_ms)
 
 bool pt_session_live(const pt_session_t *s)
 {
-    return s != NULL && s->state != ST_NONE && s->live;
+    return s != NULL && s->state != ST_NONE && !warm_state(s) && s->live;
 }
 
 void pt_session_set_history(pt_session_t *s, const pt_rt_msg_t *msgs, size_t n)
@@ -422,6 +604,13 @@ bool pt_session_hold(pt_session_t *s, uint32_t until_ms)
 
 void pt_session_rt_opened(pt_session_t *s, uint32_t now_ms)
 {
+    if (s->state == ST_WARMING) {
+        s->state = ST_WARM;
+        s->warm.on = false;
+        s->warm_since = now_ms;
+        pt_log_add(s->log, log_time(now_ms), "live connection ready (warm)");
+        return;
+    }
     if (s->state != ST_OPENING) {
         return;
     }
@@ -429,6 +618,11 @@ void pt_session_rt_opened(pt_session_t *s, uint32_t now_ms)
         s->state = ST_WAIT_CREATED;
         return;
     }
+    start_live(s, now_ms);
+}
+
+static void start_live(pt_session_t *s, uint32_t now_ms)
+{
     const pt_rt_msg_t *msgs = NULL;
     pt_rt_msg_t *list = NULL;
     if (s->hist_n > 0) {
@@ -457,6 +651,13 @@ void pt_session_rt_opened(pt_session_t *s, uint32_t now_ms)
 
 void pt_session_rt_failed(pt_session_t *s, const char *why, uint32_t now_ms)
 {
+    if (warm_state(s)) {
+        warm_failed(s, why, now_ms);
+        return;
+    }
+    if ((s->state == ST_OPENING || s->state == ST_WAIT_STARTED) && retry_cold(s, now_ms)) {
+        return;
+    }
     if (s->state == ST_OPENING || s->state == ST_WAIT_CREATED || s->state == ST_WAIT_UPDATED ||
         s->state == ST_WAIT_STARTED) {
         open_failed(s, why != NULL && why[0] != '\0' ? why : s->live ? "live connection failed" : "realtime connection failed",
@@ -489,6 +690,7 @@ static void handshake(pt_session_t *s, const pt_rt_event_t *e, uint32_t now_ms)
         s->state = ST_READY;
         s->waiting = WAIT_NONE;
         s->open.on = false;
+        s->warm_fails = 0;
         pt_log_add(s->log, log_time(now_ms), "live session ready: model %s, voice %s",
                    e->model[0] != '\0' ? e->model : "?", e->voice[0] != '\0' ? e->voice : "?");
         pt_log_add(s->log, log_time(now_ms), "live session opened");
@@ -598,7 +800,7 @@ static void defer(pt_session_t *s, pt_rt_event_t *e, bool closed)
 
 void pt_session_rt_message(pt_session_t *s, const char *json, size_t len, uint32_t now_ms)
 {
-    if (s->state == ST_NONE || s->state == ST_OPENING) {
+    if (s->state == ST_NONE || s->state == ST_OPENING || warm_state(s)) {
         return;
     }
     pt_rt_event_t e;
@@ -639,8 +841,14 @@ void pt_session_rt_closed(pt_session_t *s, uint32_t now_ms)
     switch (s->state) {
     case ST_NONE:
         return;
+    case ST_WARMING:
+    case ST_WARM:
+        warm_failed(s, "connection closed", now_ms);
+        return;
     case ST_OPENING:
-        open_failed(s, s->live ? "live connection failed" : "realtime connection failed", now_ms);
+        if (!retry_cold(s, now_ms)) {
+            open_failed(s, s->live ? "live connection failed" : "realtime connection failed", now_ms);
+        }
         return;
     case ST_WAIT_CREATED:
         open_failed(s, "realtime socket closed before session.created", now_ms);
@@ -649,7 +857,9 @@ void pt_session_rt_closed(pt_session_t *s, uint32_t now_ms)
         open_failed(s, "realtime socket closed before session.updated", now_ms);
         return;
     case ST_WAIT_STARTED:
-        open_failed(s, "live socket closed before session.started", now_ms);
+        if (!retry_cold(s, now_ms)) {
+            open_failed(s, "live socket closed before session.started", now_ms);
+        }
         return;
     case ST_READY:
         break;
@@ -702,7 +912,7 @@ static void idle_close(pt_session_t *s, uint32_t now_ms)
 
 static const deadline_t *earliest(const pt_session_t *s)
 {
-    const deadline_t *order[] = {&s->hold, &s->open, &s->check, &s->idle};
+    const deadline_t *order[] = {&s->hold, &s->open, &s->check, &s->idle, &s->warm};
     const deadline_t *best = NULL;
     for (size_t i = 0; i < sizeof(order) / sizeof(order[0]); i++) {
         if (order[i]->on && (best == NULL || pt_time_before(order[i]->at, best->at))) {
@@ -728,6 +938,8 @@ bool pt_session_tick_one(pt_session_t *s, uint32_t now_ms)
         open_failed(s, why, now_ms);
     } else if (d == &s->check) {
         reconnect(s, now_ms);
+    } else if (d == &s->warm) {
+        warm_due(s, now_ms);
     } else {
         idle_close(s, now_ms);
     }

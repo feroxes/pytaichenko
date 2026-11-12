@@ -486,6 +486,22 @@ static pt_err_t dispatch(const cJSON *msg, pt_rt_event_t *out)
     return PT_OK;
 }
 
+static bool has_text(const char *json, size_t len, const char *needle)
+{
+    size_t n = strlen(needle);
+    for (size_t i = 0; n <= len && i <= len - n; i++) {
+        if (json[i] == needle[0] && memcmp(json + i, needle, n) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool skippable(const char *json, size_t len)
+{
+    return has_text(json, len, "\"response.event\"") && !has_text(json, len, "\"response.output_item.done\"");
+}
+
 pt_err_t pt_rt_parse(const char *json, size_t len, pt_rt_event_t *out)
 {
     if (out == NULL) {
@@ -495,6 +511,9 @@ pt_err_t pt_rt_parse(const char *json, size_t len, pt_rt_event_t *out)
     out->kind = PT_RT_IGNORED;
     if (json == NULL || len == 0) {
         return PT_ERR_PARSE;
+    }
+    if (skippable(json, len)) {
+        return PT_OK;
     }
     cJSON *msg = cJSON_ParseWithLength(json, len);
     if (msg == NULL) {

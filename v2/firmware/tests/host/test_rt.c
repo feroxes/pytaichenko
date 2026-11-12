@@ -1042,6 +1042,15 @@ void test_live_parse_closed_and_error(void)
     pt_rt_event_free(&e);
 }
 
+void test_live_response_event_without_tool_is_skipped_unparsed(void)
+{
+    const char *json = "{\"type\":\"response.event\",\"delegation_id\":\"d\",\"event\":{\"type\":\"response.completed\",\"response\":{broken";
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(PT_OK, pt_rt_parse(json, strlen(json), &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_IGNORED, e.kind);
+    pt_rt_event_free(&e);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1105,5 +1114,6 @@ int main(void)
     RUN_TEST(test_live_parse_tool_call);
     RUN_TEST(test_live_parse_response_event_ignored);
     RUN_TEST(test_live_parse_closed_and_error);
+    RUN_TEST(test_live_response_event_without_tool_is_skipped_unparsed);
     return UNITY_END();
 }

@@ -284,6 +284,10 @@ pt_err_t pt_rt_live_dispatch(const char *type, const cJSON *msg, pt_rt_event_t *
     if (strcmp(type, "response.event") == 0) {
         return fill_response_event(msg, out);
     }
+    if (strcmp(type, "session.delegation.created") == 0) {
+        out->kind = PT_RT_DELEGATION;
+        return PT_OK;
+    }
     if (strcmp(type, "session.closed") == 0) {
         const char *reason = pt_rt_json_str(msg, "reason");
         out->kind = PT_RT_LIVE_CLOSED;

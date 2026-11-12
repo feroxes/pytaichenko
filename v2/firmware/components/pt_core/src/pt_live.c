@@ -16,6 +16,7 @@
 #define KEEP_SAMPLES 2400u
 #define LIVE_EARLY_CHUNK 12000u
 #define LIVE_NO_ANSWER_S 8.0f
+#define LIVE_SILENT_S 3.0f
 #define TEXT_CAP 4000u
 #define HISTORY_MAX 24u
 #define HISTORY_CHARS 4000u
@@ -39,6 +40,7 @@ typedef struct {
     bool follow_up;
     bool stopped_sent;
     bool speech_end_set;
+    bool delegated;
     phase_t phase;
     arm_t arm_kind;
     pt_slot_t arm;
@@ -408,9 +410,19 @@ static void finish_ending(pt_live_t *l, uint32_t now_ms)
     end_convo(l, now_ms);
 }
 
+static float capped(const pt_timing_t *timing, float limit)
+{
+    return timing->response_timeout_s < limit ? timing->response_timeout_s : limit;
+}
+
 static float no_answer_s(const pt_timing_t *timing)
 {
-    return timing->response_timeout_s < LIVE_NO_ANSWER_S ? timing->response_timeout_s : LIVE_NO_ANSWER_S;
+    return capped(timing, LIVE_NO_ANSWER_S);
+}
+
+static float wait_answer_s(const live_turn_t *t, const pt_timing_t *timing)
+{
+    return capped(timing, t->delegated ? LIVE_NO_ANSWER_S : LIVE_SILENT_S);
 }
 
 static void speech_stopped(pt_live_t *l, uint32_t now_ms)
@@ -434,7 +446,7 @@ static void speech_stopped(pt_live_t *l, uint32_t now_ms)
         pt_io_device(l->io, PT_DEV_SPEECH_STOPPED, false, NULL);
     }
     t->arm_kind = ARM_RESPONSE;
-    pt_slot_arm(&t->arm, now_ms, no_answer_s(timing));
+    pt_slot_arm(&t->arm, now_ms, wait_answer_s(t, timing));
 }
 
 static void own_segment(pt_live_t *l)
@@ -604,6 +616,18 @@ static void tool_send(void *ctx, const char *json)
     }
 }
 
+static void helper_busy(pt_live_t *l, uint32_t now_ms)
+{
+    live_turn_t *t = &l->turn;
+    if (!t->active) {
+        return;
+    }
+    t->delegated = true;
+    if (t->phase == PH_THINKING) {
+        pt_slot_arm(&t->arm, now_ms, no_answer_s(pt_session_timing(session(l))));
+    }
+}
+
 static void on_tool(pt_live_t *l, const pt_rt_event_t *e, uint32_t now_ms)
 {
     if (e->n_calls == 0 || e->calls == NULL) {
@@ -627,10 +651,7 @@ static void on_tool(pt_live_t *l, const pt_rt_event_t *e, uint32_t now_ms)
         }
         return;
     }
-    live_turn_t *t = &l->turn;
-    if (t->active && t->phase == PH_THINKING) {
-        pt_slot_arm(&t->arm, now_ms, no_answer_s(pt_session_timing(session(l))));
-    }
+    helper_busy(l, now_ms);
 }
 
 static void keep_alive(pt_live_t *l, uint32_t at, uint32_t now_ms)
@@ -928,6 +949,9 @@ void pt_live_on_event(pt_live_t *l, const pt_rt_event_t *e, uint32_t now_ms)
         break;
     case PT_RT_TOOL_CALL:
         on_tool(l, e, now_ms);
+        break;
+    case PT_RT_DELEGATION:
+        helper_busy(l, now_ms);
         break;
     default:
         break;

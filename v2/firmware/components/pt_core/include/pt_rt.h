@@ -24,7 +24,8 @@ typedef enum {
     PT_RT_INPUT_DELTA,
     PT_RT_OUTPUT_DELTA,
     PT_RT_TOOL_CALL,
-    PT_RT_LIVE_CLOSED
+    PT_RT_LIVE_CLOSED,
+    PT_RT_DELEGATION
 } pt_rt_kind_t;
 
 typedef struct {

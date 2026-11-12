@@ -626,28 +626,137 @@ static void assert_no_answer_end(void)
     TEST_ASSERT_FALSE(pt_convo_follow_up_pending(C));
 }
 
+static void delegation(void)
+{
+    push("{\"type\":\"session.delegation.created\",\"offset_ms\":14800,\"delegation\":{\"id\":\"item_1\",\"type\":"
+         "\"delegation\",\"response_id\":\"resp_1\",\"target\":\"responses\"},\"event_id\":\"event_1\"}");
+}
+
 void test_live_silent_model_ends_with_no_answer(void)
 {
     start();
     ask("Привіт");
-    advance(4900);
+    advance(2900);
+    EXPECT_DEVICES(L, SS, SP);
+    advance(100);
+    EXPECT_DEVICES(L, SS, SP, EN);
+    TEST_ASSERT_EQUAL_UINT32(1000 + 800 + 3000, fp_time_of(&F, EN, 0));
+    assert_no_answer_end();
+}
+
+void test_live_silent_model_ends_at_three_seconds_even_with_a_long_timeout(void)
+{
+    S->timing.response_timeout_s = 30.0f;
+    apply();
+    start();
+    ask("Дякую, все");
+    advance(2999);
+    EXPECT_DEVICES(L, SS, SP);
+    advance(1);
+    EXPECT_DEVICES(L, SS, SP, EN);
+    assert_no_answer_end();
+}
+
+void test_live_silent_model_with_a_short_timeout_ends_sooner(void)
+{
+    S->timing.response_timeout_s = 2.0f;
+    apply();
+    start();
+    ask("Привіт");
+    advance(1999);
+    EXPECT_DEVICES(L, SS, SP);
+    advance(1);
+    EXPECT_DEVICES(L, SS, SP, EN);
+    assert_no_answer_end();
+}
+
+void test_live_delegation_waits_at_most_eight_seconds(void)
+{
+    S->timing.response_timeout_s = 30.0f;
+    apply();
+    start();
+    ask("Тихіше");
+    advance(1000);
+    delegation();
+    advance(6900);
+    EXPECT_DEVICES(L, SS, SP);
+    advance(1100);
+    EXPECT_DEVICES(L, SS, SP, EN);
+    TEST_ASSERT_EQUAL_UINT32(1000 + 800 + 1000 + 8000, fp_time_of(&F, EN, 0));
+    assert_no_answer_end();
+}
+
+void test_live_delegation_before_speech_stopped_waits_eight_seconds(void)
+{
+    S->timing.response_timeout_s = 30.0f;
+    apply();
+    start();
+    heard("Тихіше");
+    delegation();
+    advance(800);
+    EXPECT_DEVICES(L, SS, SP);
+    advance(7900);
     EXPECT_DEVICES(L, SS, SP);
     advance(100);
     EXPECT_DEVICES(L, SS, SP, EN);
     assert_no_answer_end();
 }
 
-void test_live_silent_model_waits_at_most_eight_seconds(void)
+void test_live_delegation_then_tool_then_answer(void)
 {
     S->timing.response_timeout_s = 30.0f;
     apply();
     start();
-    ask("Дякую, все");
+    ask("Тихіше");
+    delegation();
+    advance(4000);
+    EXPECT_DEVICES(L, SS, SP);
+    tool("c1", "set_volume", "{\\\"action\\\":\\\"down\\\"}");
+    advance(7900);
+    EXPECT_DEVICES(L, SS, SP);
+    reply(300);
+    EXPECT_DEVICES(L, SS, SP, AS, AN);
+    TEST_ASSERT_TRUE(last_device()->follow_up);
+    TEST_ASSERT_TRUE(log_mentions("turn ended: answered"));
+}
+
+void test_live_tool_call_without_delegation_event_waits_eight_seconds(void)
+{
+    S->timing.response_timeout_s = 30.0f;
+    apply();
+    start();
+    ask("Тихіше");
+    advance(2000);
+    tool("c1", "set_volume", "{\\\"action\\\":\\\"down\\\"}");
     advance(7900);
     EXPECT_DEVICES(L, SS, SP);
     advance(100);
     EXPECT_DEVICES(L, SS, SP, EN);
-    assert_no_answer_end();
+}
+
+void test_live_delegation_counts_only_for_its_turn(void)
+{
+    start();
+    ask("Тихіше");
+    delegation();
+    reply(300);
+    EXPECT_DEVICES(L, SS, SP, AS, AN);
+    start();
+    ask("Дякую, все");
+    uint32_t stopped = now;
+    advance(3000);
+    EXPECT_DEVICES(L, SS, SP, AS, AN, L, SS, SP, EN);
+    TEST_ASSERT_EQUAL_UINT32(stopped + 3000, fp_time_of(&F, EN, 0));
+}
+
+void test_live_delegation_between_turns_is_ignored(void)
+{
+    answered_first_turn();
+    delegation();
+    start();
+    ask("Дякую, все");
+    advance(3000);
+    EXPECT_DEVICES(L, SS, SP, AS, AN, L, SS, SP, EN);
 }
 
 void test_live_background_speech_past_the_cap_ends(void)
@@ -1086,7 +1195,14 @@ int main(void)
     RUN_TEST(test_live_session_closed_mid_answer_fails);
     RUN_TEST(test_live_socket_closed_mid_turn_fails);
     RUN_TEST(test_live_silent_model_ends_with_no_answer);
-    RUN_TEST(test_live_silent_model_waits_at_most_eight_seconds);
+    RUN_TEST(test_live_silent_model_ends_at_three_seconds_even_with_a_long_timeout);
+    RUN_TEST(test_live_silent_model_with_a_short_timeout_ends_sooner);
+    RUN_TEST(test_live_delegation_waits_at_most_eight_seconds);
+    RUN_TEST(test_live_delegation_before_speech_stopped_waits_eight_seconds);
+    RUN_TEST(test_live_delegation_then_tool_then_answer);
+    RUN_TEST(test_live_tool_call_without_delegation_event_waits_eight_seconds);
+    RUN_TEST(test_live_delegation_counts_only_for_its_turn);
+    RUN_TEST(test_live_delegation_between_turns_is_ignored);
     RUN_TEST(test_live_background_speech_past_the_cap_ends);
     RUN_TEST(test_live_resumed_speech_goes_back_to_speaking_under_the_cap);
     RUN_TEST(test_live_resumed_speech_then_answer);

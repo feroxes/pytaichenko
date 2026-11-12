@@ -759,6 +759,250 @@ void test_event_free_is_safe(void)
     TEST_ASSERT_EQUAL_INT(PT_ERR_INVALID, pt_rt_parse("{}", 2, NULL));
 }
 
+static const cJSON *at(const cJSON *o, const char *a, const char *b, const char *c)
+{
+    const cJSON *x = cJSON_GetObjectItemCaseSensitive(o, a);
+    if (b != NULL) {
+        x = cJSON_GetObjectItemCaseSensitive(x, b);
+    }
+    if (c != NULL) {
+        x = cJSON_GetObjectItemCaseSensitive(x, c);
+    }
+    return x;
+}
+
+static void live_settings(void)
+{
+    snprintf(S->openai.model, sizeof(S->openai.model), "gpt-live-1");
+}
+
+void test_live_detects_model(void)
+{
+    TEST_ASSERT_TRUE(pt_rt_is_live("gpt-live-1"));
+    TEST_ASSERT_FALSE(pt_rt_is_live("gpt-realtime-2.1-mini"));
+    TEST_ASSERT_FALSE(pt_rt_is_live(""));
+    TEST_ASSERT_FALSE(pt_rt_is_live(NULL));
+}
+
+void test_live_start_shape(void)
+{
+    live_settings();
+    snprintf(S->openai.reasoning_effort, sizeof(S->openai.reasoning_effort), "low");
+    cJSON *msg = parsed_owned(pt_rt_live_start(S, NULL, 0, true));
+    TEST_ASSERT_EQUAL_STRING("session.start", at(msg, "type", NULL, NULL)->valuestring);
+    TEST_ASSERT_EQUAL_STRING("gpt-live-1", at(msg, "session", "model", NULL)->valuestring);
+    const cJSON *fmt = at(msg, "session", "audio", "format");
+    TEST_ASSERT_EQUAL_STRING("audio/pcm", at(fmt, "type", NULL, NULL)->valuestring);
+    TEST_ASSERT_EQUAL_INT(24000, at(fmt, "rate", NULL, NULL)->valueint);
+    TEST_ASSERT_EQUAL_STRING(S->openai.voice, at(at(msg, "session", "audio", "output"), "voice", NULL, NULL)->valuestring);
+    char want[8300];
+    snprintf(want, sizeof want, "%s\n\n%s", S->assistant.instructions, PT_LIVE_SUFFIX);
+    TEST_ASSERT_EQUAL_STRING(want, at(msg, "session", "instructions", NULL)->valuestring);
+    const cJSON *del = at(msg, "session", "delegation", NULL);
+    TEST_ASSERT_EQUAL_STRING("responses", at(del, "type", NULL, NULL)->valuestring);
+    TEST_ASSERT_EQUAL_INT(800, at(del, "acknowledgement_delay_ms", NULL, NULL)->valueint);
+    const cJSON *resp = at(del, "responses", NULL, NULL);
+    TEST_ASSERT_EQUAL_STRING("gpt-6-luna", at(resp, "model", NULL, NULL)->valuestring);
+    TEST_ASSERT_EQUAL_STRING("low", at(resp, "reasoning", "effort", NULL)->valuestring);
+    cJSON *tools = pt_tools_object(S->assistant.language);
+    char *want_tools = cJSON_PrintUnformatted(tools);
+    char *got_tools = cJSON_PrintUnformatted(at(resp, "tools", NULL, NULL));
+    TEST_ASSERT_EQUAL_STRING(want_tools, got_tools);
+    free(want_tools);
+    free(got_tools);
+    cJSON_Delete(tools);
+    TEST_ASSERT_TRUE(strlen(at(resp, "instructions", NULL, NULL)->valuestring) > 0);
+    TEST_ASSERT_NULL(at(msg, "session", "input", NULL));
+    char *all = cJSON_PrintUnformatted(msg);
+    TEST_ASSERT_NULL(strstr(all, "turn_detection"));
+    free(all);
+    cJSON_Delete(msg);
+}
+
+void test_live_start_empty_effort_omits_reasoning(void)
+{
+    live_settings();
+    S->openai.reasoning_effort[0] = '\0';
+    cJSON *msg = parsed_owned(pt_rt_live_start(S, NULL, 0, true));
+    TEST_ASSERT_NOT_NULL(at(msg, "session", "delegation", "responses"));
+    TEST_ASSERT_NULL(at(at(msg, "session", "delegation", "responses"), "reasoning", NULL, NULL));
+    cJSON_Delete(msg);
+}
+
+void test_live_start_without_helper(void)
+{
+    live_settings();
+    cJSON *msg = parsed_owned(pt_rt_live_start(S, NULL, 0, false));
+    TEST_ASSERT_NULL(at(msg, "session", "delegation", NULL));
+    cJSON_Delete(msg);
+}
+
+void test_live_start_history(void)
+{
+    live_settings();
+    pt_rt_msg_t h[2] = {{"user", "Яка столиця Франції?"}, {"assistant", "Париж."}};
+    cJSON *msg = parsed_owned(pt_rt_live_start(S, h, 2, true));
+    const cJSON *input = at(msg, "session", "input", NULL);
+    TEST_ASSERT_EQUAL_INT(2, cJSON_GetArraySize(input));
+    cJSON *want = parsed(
+        "[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Яка столиця Франції?\"}]},"
+        "{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Париж.\"}]}]");
+    TEST_ASSERT_TRUE(cJSON_Compare(want, input, 1));
+    cJSON_Delete(want);
+    cJSON_Delete(msg);
+}
+
+static size_t decode_b64(const char *b64, unsigned char *buf, size_t cap)
+{
+    size_t n = 0;
+    TEST_ASSERT_EQUAL_INT(0, mbedtls_base64_decode(buf, cap, &n, (const unsigned char *)b64, strlen(b64)));
+    return n;
+}
+
+void test_live_append_roundtrip(void)
+{
+    int16_t pcm[3] = {1, -2, 0x1234};
+    cJSON *msg = parsed_owned(pt_rt_live_append(pcm, 3));
+    TEST_ASSERT_EQUAL_STRING("session.input_audio.append", at(msg, "type", NULL, NULL)->valuestring);
+    unsigned char raw[16];
+    size_t n = decode_b64(at(msg, "audio", NULL, NULL)->valuestring, raw, sizeof raw);
+    unsigned char want[6] = {1, 0, 0xfe, 0xff, 0x34, 0x12};
+    TEST_ASSERT_EQUAL_size_t(6, n);
+    TEST_ASSERT_EQUAL_MEMORY(want, raw, 6);
+    cJSON_Delete(msg);
+}
+
+typedef struct {
+    char *sent[4];
+    int n;
+} capture_t;
+
+static void capture(void *ctx, const char *json)
+{
+    capture_t *c = ctx;
+    c->sent[c->n++] = strdup(json);
+}
+
+void test_live_tool_output(void)
+{
+    pt_tool_call_t call = {0};
+    snprintf(call.call_id, sizeof call.call_id, "call_1");
+    capture_t c = {0};
+    pt_rt_live_tool_output(&call, "{\"ok\": true}", true, capture, &c);
+    TEST_ASSERT_EQUAL_INT(2, c.n);
+    cJSON *a = parsed(c.sent[0]);
+    cJSON *wa = parsed("{\"type\":\"response.item.create\",\"item\":{\"type\":\"function_call_output\",\"call_id\":\"call_1\","
+                       "\"output\":\"{\\\"ok\\\": true}\"}}");
+    TEST_ASSERT_TRUE(cJSON_Compare(a, wa, 1));
+    TEST_ASSERT_EQUAL_STRING("{\"type\":\"response.create\"}", c.sent[1]);
+    cJSON_Delete(a);
+    cJSON_Delete(wa);
+    free(c.sent[0]);
+    free(c.sent[1]);
+    capture_t d = {0};
+    pt_rt_live_tool_output(&call, "x", false, capture, &d);
+    TEST_ASSERT_EQUAL_INT(1, d.n);
+    free(d.sent[0]);
+}
+
+void test_live_close(void)
+{
+    cJSON *msg = parsed(pt_rt_live_close());
+    cJSON *want = parsed("{\"type\":\"session.close\"}");
+    TEST_ASSERT_TRUE(cJSON_Compare(want, msg, 1));
+    cJSON_Delete(msg);
+    cJSON_Delete(want);
+}
+
+static pt_err_t parse_str(const char *json, pt_rt_event_t *e)
+{
+    return pt_rt_parse(json, strlen(json), e);
+}
+
+void test_live_parse_started(void)
+{
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"session.started\",\"session\":{\"id\":\"live_1\",\"model\":\"gpt-live-1\","
+                                           "\"audio\":{\"output\":{\"voice\":\"marin\"}}}}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_SESSION_READY, e.kind);
+    TEST_ASSERT_EQUAL_STRING("started", e.status);
+    TEST_ASSERT_EQUAL_STRING("gpt-live-1", e.model);
+    TEST_ASSERT_EQUAL_STRING("marin", e.voice);
+    pt_rt_event_free(&e);
+}
+
+void test_live_parse_audio(void)
+{
+    int16_t pcm[4] = {1, -1, 300, -300};
+    char b64[32];
+    size_t n = 0;
+    mbedtls_base64_encode((unsigned char *)b64, sizeof b64, &n, (const unsigned char *)pcm, sizeof pcm);
+    b64[n] = '\0';
+    char json[128];
+    snprintf(json, sizeof json, "{\"type\":\"session.output_audio.delta\",\"delta\":\"%s\"}", b64);
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str(json, &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_LIVE_AUDIO, e.kind);
+    TEST_ASSERT_EQUAL_size_t(4, e.pcm_len);
+    TEST_ASSERT_EQUAL_INT16_ARRAY(pcm, e.pcm, 4);
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_ERR_PARSE, parse_str("{\"type\":\"session.output_audio.delta\",\"delta\":\"AQID\"}", &e));
+}
+
+void test_live_parse_deltas(void)
+{
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"session.input_transcript.delta\",\"delta\":\" Роз\"}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_INPUT_DELTA, e.kind);
+    TEST_ASSERT_EQUAL_STRING(" Роз", e.text);
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"session.output_transcript.delta\",\"delta\":\"Па\"}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_OUTPUT_DELTA, e.kind);
+    TEST_ASSERT_EQUAL_STRING("Па", e.text);
+    pt_rt_event_free(&e);
+}
+
+void test_live_parse_tool_call(void)
+{
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(
+        PT_OK, parse_str("{\"type\":\"response.event\",\"delegation_id\":\"item_1\",\"event\":{\"type\":\"response.output_item.done\","
+                         "\"item\":{\"type\":\"function_call\",\"call_id\":\"call_9\",\"name\":\"set_volume\","
+                         "\"arguments\":\"{\\\"direction\\\":\\\"up\\\"}\"}}}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_TOOL_CALL, e.kind);
+    TEST_ASSERT_EQUAL_size_t(1, e.n_calls);
+    TEST_ASSERT_EQUAL_STRING("call_9", e.calls[0].call_id);
+    TEST_ASSERT_EQUAL_STRING("set_volume", e.calls[0].name);
+    TEST_ASSERT_EQUAL_STRING("{\"direction\":\"up\"}", e.calls[0].arguments);
+    pt_rt_event_free(&e);
+}
+
+void test_live_parse_response_event_ignored(void)
+{
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"response.event\",\"delegation_id\":\"i\",\"event\":{\"type\":\"response.output_item.done\","
+                                           "\"item\":{\"type\":\"message\",\"content\":[]}}}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_IGNORED, e.kind);
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"response.event\",\"event\":{\"type\":\"response.completed\"}}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_IGNORED, e.kind);
+    pt_rt_event_free(&e);
+}
+
+void test_live_parse_closed_and_error(void)
+{
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"session.closed\",\"reason\":\"expired\"}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_LIVE_CLOSED, e.kind);
+    TEST_ASSERT_EQUAL_STRING("expired", e.status);
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\","
+                                           "\"code\":\"unknown_parameter\",\"message\":\"bad\"}}", &e));
+    TEST_ASSERT_EQUAL_INT(PT_RT_ERROR, e.kind);
+    TEST_ASSERT_EQUAL_STRING("unknown_parameter: bad", e.text);
+    pt_rt_event_free(&e);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -806,5 +1050,19 @@ int main(void)
     RUN_TEST(test_parse_truncates_long_names_but_keeps_call_id);
     RUN_TEST(test_parse_ignores_the_length_not_the_terminator);
     RUN_TEST(test_event_free_is_safe);
+    RUN_TEST(test_live_detects_model);
+    RUN_TEST(test_live_start_shape);
+    RUN_TEST(test_live_start_empty_effort_omits_reasoning);
+    RUN_TEST(test_live_start_without_helper);
+    RUN_TEST(test_live_start_history);
+    RUN_TEST(test_live_append_roundtrip);
+    RUN_TEST(test_live_tool_output);
+    RUN_TEST(test_live_close);
+    RUN_TEST(test_live_parse_started);
+    RUN_TEST(test_live_parse_audio);
+    RUN_TEST(test_live_parse_deltas);
+    RUN_TEST(test_live_parse_tool_call);
+    RUN_TEST(test_live_parse_response_event_ignored);
+    RUN_TEST(test_live_parse_closed_and_error);
     return UNITY_END();
 }

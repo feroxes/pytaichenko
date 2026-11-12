@@ -1,9 +1,12 @@
 #include "pt_wsurl.h"
 
+#include "pt_rt.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
+#define WS_URL_LIVE "wss://api.openai.com/v1/live/sessions"
 #define WS_URL_BASE "wss://api.openai.com/v1/realtime?model="
 
 static bool unreserved(unsigned char c)
@@ -16,6 +19,14 @@ pt_err_t pt_ws_url(const char *model, char *out, size_t len)
 {
     if (model == NULL || model[0] == '\0' || out == NULL || len == 0) {
         return PT_ERR_INVALID;
+    }
+    if (pt_rt_is_live(model)) {
+        size_t live = strlen(WS_URL_LIVE);
+        if (len <= live) {
+            return PT_ERR_INVALID;
+        }
+        memcpy(out, WS_URL_LIVE, live + 1);
+        return PT_OK;
     }
     static const char hex[] = "0123456789ABCDEF";
     size_t base = strlen(WS_URL_BASE);

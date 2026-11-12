@@ -32,6 +32,15 @@ static void test_ws_url_rejects_bad_input_and_small_buffers(void)
     TEST_ASSERT_EQUAL_INT(PT_ERR_INVALID, pt_ws_url("\xC3\xA9", small, strlen(full) + 3));
 }
 
+static void test_ws_url_live_model(void)
+{
+    char url[160];
+    TEST_ASSERT_EQUAL_INT(PT_OK, pt_ws_url("gpt-live-1", url, sizeof(url)));
+    TEST_ASSERT_EQUAL_STRING("wss://api.openai.com/v1/live/sessions", url);
+    char small[37];
+    TEST_ASSERT_EQUAL_INT(PT_ERR_INVALID, pt_ws_url("gpt-live-1", small, sizeof(small)));
+}
+
 static void test_ws_status_401_maps_to_bad_key(void)
 {
     TEST_ASSERT_EQUAL_INT(PT_WS_BAD_KEY, pt_ws_status_from_http(401));
@@ -51,6 +60,7 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_ws_url_encodes_model);
     RUN_TEST(test_ws_url_rejects_bad_input_and_small_buffers);
+    RUN_TEST(test_ws_url_live_model);
     RUN_TEST(test_ws_status_401_maps_to_bad_key);
     return UNITY_END();
 }

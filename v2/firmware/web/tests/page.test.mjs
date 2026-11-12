@@ -1197,6 +1197,19 @@ test('choosing gpt-live-1 hides the voice threshold and pause and shows the note
   assert.equal(page.visible(p.note), false);
 });
 
+test('the live note says the reasoning field drives the model that carries out actions', async () => {
+  const uk = await open({}, { hash: '#conversation' });
+  const ukLabel = uk.$('label[for="openai-reasoning"]').textContent.trim();
+  assert.equal(ukLabel, 'Обмірковування відповіді');
+  assert.ok(uk.$('#openai-live-note').textContent.includes(`Поле «${ukLabel}» тут керує моделлю, що виконує дії.`));
+  const en = await open({}, { search: '?lang=en', hash: '#conversation' });
+  const enLabel = en.$('label[for="openai-reasoning"]').textContent.trim();
+  assert.equal(enLabel, 'Thinking before answering');
+  assert.ok(en.$('#openai-live-note').textContent.includes(
+    `The “${enLabel}” field here sets the effort of the model that carries out actions.`,
+  ));
+});
+
 test('a saved gpt-live-1 model opens with the fields hidden', async () => {
   const live = { ...SETTINGS, openai: { ...SETTINGS.openai, model: 'gpt-live-1' } };
   const page = await open({ 'GET api/settings': reply(200, { settings: live }) }, { hash: '#conversation' });

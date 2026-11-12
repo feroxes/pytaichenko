@@ -126,8 +126,9 @@
           <select id="openai-model" data-field="openai.model" aria-describedby="openai-model-hint">
             <option value="gpt-realtime-2.1-mini">gpt-realtime-2.1-mini</option>
             <option value="gpt-realtime-2.1">gpt-realtime-2.1</option>
+            <option value="gpt-live-1">gpt-live-1</option>
           </select>
-          <p class="hint" id="openai-model-hint" data-i18n="openai.model_hint">gpt-realtime-2.1-mini — швидша й дешевша; gpt-realtime-2.1 — точніша, але дорожча.</p>
+          <p class="hint" id="openai-model-hint" data-i18n="openai.model_hint">gpt-realtime-2.1-mini — швидша й дешевша; gpt-realtime-2.1 — точніша, але дорожча; gpt-live-1 — найживіша розмова, $0,05 за хвилину розмови плюс невелика плата за модель, що виконує дії (гучність, завершення).</p>
         </div>
         <div class="field">
           <label for="openai-voice" data-i18n="openai.voice">Голос</label>
@@ -162,14 +163,15 @@
         </div>
         <details class="more">
           <summary data-i18n="more">Тонкі налаштування</summary>
-          <div class="field">
+          <p class="hint" id="openai-live-note" data-i18n="openai.live_note" hidden>Для gpt-live-1 поріг голосу й пауза не діють: модель сама чує, коли ви закінчили.</p>
+          <div class="field" data-realtime-only>
             <label for="openai-vad" data-i18n="openai.vad">Чутливість до голосу</label>
             <div class="with-unit">
               <input id="openai-vad" type="text" inputmode="decimal" data-field="openai.vad_threshold" data-decimal autocomplete="off" aria-describedby="openai-vad-hint">
             </div>
             <p class="hint" id="openai-vad-hint" data-hint="openai.vad_hint"></p>
           </div>
-          <div class="field">
+          <div class="field" data-realtime-only>
             <label for="openai-silence" data-i18n="openai.silence">Тиша, що завершує питання</label>
             <div class="with-unit">
               <input id="openai-silence" type="text" inputmode="numeric" data-field="openai.silence_ms" autocomplete="off" aria-describedby="openai-silence-hint">

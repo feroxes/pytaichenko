@@ -1164,3 +1164,62 @@ test('the header starts with a heart Donate link to Donatello that opens in a ne
   assert.ok(link.querySelector('svg.donate-heart'));
   assert.equal(link.textContent.trim(), 'Donate');
 });
+
+function liveParts(page) {
+  return {
+    vad: page.$('#openai-vad').closest('.field'),
+    silence: page.$('#openai-silence').closest('.field'),
+    note: page.$('#openai-live-note'),
+  };
+}
+
+test('the model list offers gpt-live-1 after the realtime models', async () => {
+  const page = await open({}, { hash: '#conversation' });
+  const values = [...page.$('#openai-model').querySelectorAll('option')].map((o) => o.value);
+  assert.deepEqual(values, ['gpt-realtime-2.1-mini', 'gpt-realtime-2.1', 'gpt-live-1']);
+});
+
+test('choosing gpt-live-1 hides the voice threshold and pause and shows the note', async () => {
+  const page = await open({}, { hash: '#conversation' });
+  let p = liveParts(page);
+  assert.equal(page.visible(p.vad), true);
+  assert.equal(page.visible(p.silence), true);
+  assert.equal(page.visible(p.note), false);
+  page.type(page.$('#openai-model'), 'gpt-live-1');
+  p = liveParts(page);
+  assert.equal(page.visible(p.vad), false);
+  assert.equal(page.visible(p.silence), false);
+  assert.equal(page.visible(p.note), true);
+  page.type(page.$('#openai-model'), 'gpt-realtime-2.1');
+  p = liveParts(page);
+  assert.equal(page.visible(p.vad), true);
+  assert.equal(page.visible(p.silence), true);
+  assert.equal(page.visible(p.note), false);
+});
+
+test('a saved gpt-live-1 model opens with the fields hidden', async () => {
+  const live = { ...SETTINGS, openai: { ...SETTINGS.openai, model: 'gpt-live-1' } };
+  const page = await open({ 'GET api/settings': reply(200, { settings: live }) }, { hash: '#conversation' });
+  const p = liveParts(page);
+  assert.equal(page.visible(p.vad), false);
+  assert.equal(page.visible(p.note), true);
+});
+
+test('saving with gpt-live-1 still saves the hidden threshold and pause', async () => {
+  const bodies = [];
+  const page = await open({
+    'PUT api/settings': (body) => {
+      bodies.push(body);
+      return reply(200, { settings: SETTINGS });
+    },
+  }, { hash: '#conversation' });
+  page.type(page.$('#openai-vad'), '0,6');
+  page.type(page.$('#openai-silence'), '700');
+  page.type(page.$('#openai-model'), 'gpt-live-1');
+  page.submit(page.$('[data-form="openai"]'));
+  await settle();
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].openai.model, 'gpt-live-1');
+  assert.equal(bodies[0].openai.vad_threshold, 0.6);
+  assert.equal(bodies[0].openai.silence_ms, 700);
+});

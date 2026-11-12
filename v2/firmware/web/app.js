@@ -259,7 +259,8 @@
       'openai.check_wait': "Перевіряю з'єднання…",
       'openai.check_ok': "З'єднання працює. Модель {model}, голос {voice}.",
       'openai.model': 'Модель',
-      'openai.model_hint': 'gpt-realtime-2.1-mini — швидша й дешевша; gpt-realtime-2.1 — точніша, але дорожча.',
+      'openai.model_hint': 'gpt-realtime-2.1-mini — швидша й дешевша; gpt-realtime-2.1 — точніша, але дорожча; gpt-live-1 — найживіша розмова, $0,05 за хвилину розмови плюс невелика плата за модель, що виконує дії (гучність, завершення).',
+      'openai.live_note': 'Для gpt-live-1 поріг голосу й пауза не діють: модель сама чує, коли ви закінчили.',
       'openai.voice': 'Голос',
       'openai.voice_hint': 'Голос, яким відповідає асистент. Найприродніше звучать marin і cedar.',
       'openai.reasoning': 'Обмірковування відповіді',
@@ -517,7 +518,8 @@
       'openai.check_wait': 'Checking the connection…',
       'openai.check_ok': 'The connection works. Model {model}, voice {voice}.',
       'openai.model': 'Model',
-      'openai.model_hint': 'gpt-realtime-2.1-mini is faster and cheaper; gpt-realtime-2.1 is more accurate but costs more.',
+      'openai.model_hint': 'gpt-realtime-2.1-mini is faster and cheaper; gpt-realtime-2.1 is more accurate but costs more; gpt-live-1 gives the most natural conversation, $0.05 per minute of conversation plus a small charge for the model that carries out actions (volume, ending).',
+      'openai.live_note': 'With gpt-live-1 the voice threshold and pause do not apply: the model hears by itself when you have finished.',
       'openai.voice': 'Voice',
       'openai.voice_hint': 'The voice the assistant answers with. marin and cedar sound the most natural.',
       'openai.reasoning': 'Thinking before answering',
@@ -1525,6 +1527,16 @@
       state.instructionsFor = null;
       updateLanguageNote();
     }
+    if (name === 'openai') updateLiveFields();
+  }
+
+  function updateLiveFields() {
+    var select = $('#openai-model');
+    var live = !!select && String(select.value).indexOf('gpt-live') === 0;
+    $$('[data-realtime-only]').forEach(function (node) {
+      node.hidden = live;
+    });
+    $('#openai-live-note').hidden = !live;
   }
 
   function withPatch(loaded, patch) {
@@ -2328,6 +2340,7 @@
   function onInput(event) {
     var input = event.target;
     if (input.getAttribute && input.getAttribute('aria-invalid') === 'true') clearField(input);
+    if (input.id === 'openai-model') updateLiveFields();
     if (input.id === 'assistant-language') {
       updateLanguageNote();
       switchInstructions(input.value);

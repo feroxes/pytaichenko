@@ -804,6 +804,7 @@ void test_live_start_shape(void)
     const cJSON *resp = at(del, "responses", NULL, NULL);
     TEST_ASSERT_EQUAL_STRING("gpt-6-luna", at(resp, "model", NULL, NULL)->valuestring);
     TEST_ASSERT_EQUAL_STRING("low", at(resp, "reasoning", "effort", NULL)->valuestring);
+    TEST_ASSERT_TRUE(cJSON_IsFalse(at(resp, "parallel_tool_calls", NULL, NULL)));
     cJSON *tools = pt_tools_object(S->assistant.language);
     char *want_tools = cJSON_PrintUnformatted(tools);
     char *got_tools = cJSON_PrintUnformatted(at(resp, "tools", NULL, NULL));
@@ -826,6 +827,21 @@ void test_live_start_empty_effort_omits_reasoning(void)
     cJSON *msg = parsed_owned(pt_rt_live_start(S, NULL, 0, true));
     TEST_ASSERT_NOT_NULL(at(msg, "session", "delegation", "responses"));
     TEST_ASSERT_NULL(at(at(msg, "session", "delegation", "responses"), "reasoning", NULL, NULL));
+    cJSON_Delete(msg);
+}
+
+void test_live_start_minimal_effort_becomes_none_for_the_helper(void)
+{
+    live_settings();
+    snprintf(S->openai.reasoning_effort, sizeof(S->openai.reasoning_effort), "minimal");
+    cJSON *msg = parsed_owned(pt_rt_live_start(S, NULL, 0, true));
+    const cJSON *resp = at(msg, "session", "delegation", "responses");
+    TEST_ASSERT_EQUAL_STRING("none", at(resp, "reasoning", "effort", NULL)->valuestring);
+    cJSON_Delete(msg);
+    snprintf(S->openai.reasoning_effort, sizeof(S->openai.reasoning_effort), "high");
+    msg = parsed_owned(pt_rt_live_start(S, NULL, 0, true));
+    resp = at(msg, "session", "delegation", "responses");
+    TEST_ASSERT_EQUAL_STRING("high", at(resp, "reasoning", "effort", NULL)->valuestring);
     cJSON_Delete(msg);
 }
 
@@ -989,6 +1005,29 @@ void test_live_parse_response_event_ignored(void)
     pt_rt_event_free(&e);
 }
 
+void test_live_helper_error_is_recognised(void)
+{
+    pt_rt_event_t e;
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\","
+                                           "\"code\":\"responses_validation_failed\",\"message\":\"Unsupported value\"}}",
+                                           &e));
+    TEST_ASSERT_TRUE(pt_rt_live_helper_error(&e));
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"error\",\"error\":{\"code\":\"responses_validation_failed\"}}", &e));
+    TEST_ASSERT_TRUE(pt_rt_live_helper_error(&e));
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"error\",\"error\":{\"code\":\"responses_validation_failed_x\"}}", &e));
+    TEST_ASSERT_FALSE(pt_rt_live_helper_error(&e));
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"error\",\"error\":{\"code\":\"invalid_value\",\"message\":\"responses_validation_failed\"}}", &e));
+    TEST_ASSERT_FALSE(pt_rt_live_helper_error(&e));
+    pt_rt_event_free(&e);
+    TEST_ASSERT_EQUAL_INT(PT_OK, parse_str("{\"type\":\"session.closed\",\"reason\":\"expired\"}", &e));
+    TEST_ASSERT_FALSE(pt_rt_live_helper_error(&e));
+    pt_rt_event_free(&e);
+    TEST_ASSERT_FALSE(pt_rt_live_helper_error(NULL));
+}
+
 void test_live_parse_closed_and_error(void)
 {
     pt_rt_event_t e;
@@ -1053,6 +1092,8 @@ int main(void)
     RUN_TEST(test_live_detects_model);
     RUN_TEST(test_live_start_shape);
     RUN_TEST(test_live_start_empty_effort_omits_reasoning);
+    RUN_TEST(test_live_start_minimal_effort_becomes_none_for_the_helper);
+    RUN_TEST(test_live_helper_error_is_recognised);
     RUN_TEST(test_live_start_without_helper);
     RUN_TEST(test_live_start_history);
     RUN_TEST(test_live_append_roundtrip);

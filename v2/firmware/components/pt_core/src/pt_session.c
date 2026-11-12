@@ -77,6 +77,11 @@ static uint32_t log_time(uint32_t now_ms)
     return now_ms / 1000u;
 }
 
+static const char *engine(bool live)
+{
+    return live ? "live" : "realtime";
+}
+
 static void set_deadline(deadline_t *d, uint32_t at)
 {
     d->on = true;
@@ -260,7 +265,8 @@ void pt_session_for_turn(pt_session_t *s, bool cancel_previous, uint32_t now_ms)
         pt_session_abort(s);
     }
     if (s->state == ST_READY && pt_settings_session_changed(&s->used, &s->fresh)) {
-        pt_log_add(s->log, log_time(now_ms), "settings changed; opening a fresh realtime session");
+        pt_log_add(s->log, log_time(now_ms), "settings changed; opening a fresh %s session",
+                   engine(pt_rt_is_live(s->fresh.openai.model)));
         pt_session_detach(s);
     }
     if (s->state == ST_READY && s->live && s->lost) {
@@ -453,15 +459,20 @@ void pt_session_rt_failed(pt_session_t *s, const char *why, uint32_t now_ms)
 {
     if (s->state == ST_OPENING || s->state == ST_WAIT_CREATED || s->state == ST_WAIT_UPDATED ||
         s->state == ST_WAIT_STARTED) {
-        open_failed(s, why != NULL && why[0] != '\0' ? why : "realtime connection failed", now_ms);
+        open_failed(s, why != NULL && why[0] != '\0' ? why : s->live ? "live connection failed" : "realtime connection failed",
+                    now_ms);
     }
 }
 
 static void handshake(pt_session_t *s, const pt_rt_event_t *e, uint32_t now_ms)
 {
+    if (e->kind == PT_RT_ERROR && s->live && pt_rt_live_helper_error(e)) {
+        pt_log_add(s->log, log_time(now_ms), "live error: %s", e->text);
+        return;
+    }
     if (e->kind == PT_RT_ERROR) {
         char why[192];
-        snprintf(why, sizeof(why), "realtime error %s", e->text != NULL ? e->text : "unknown");
+        snprintf(why, sizeof(why), "%s error %s", engine(s->live), e->text != NULL ? e->text : "unknown");
         open_failed(s, why, now_ms);
         return;
     }
@@ -544,7 +555,7 @@ static void dispatch(pt_session_t *s, const pt_rt_event_t *e, uint32_t now_ms)
     case PT_RT_SESSION_READY:
         return;
     case PT_RT_ERROR:
-        pt_log_add(s->log, log_time(now_ms), "realtime error: %s", e->text != NULL ? e->text : "unknown");
+        pt_log_add(s->log, log_time(now_ms), "%s error: %s", engine(s->live), e->text != NULL ? e->text : "unknown");
         return;
     case PT_RT_INPUT_CLEARED:
         if (s->waiting == WAIT_CHECK) {
@@ -629,7 +640,7 @@ void pt_session_rt_closed(pt_session_t *s, uint32_t now_ms)
     case ST_NONE:
         return;
     case ST_OPENING:
-        open_failed(s, "realtime connection failed", now_ms);
+        open_failed(s, s->live ? "live connection failed" : "realtime connection failed", now_ms);
         return;
     case ST_WAIT_CREATED:
         open_failed(s, "realtime socket closed before session.created", now_ms);
@@ -712,7 +723,8 @@ bool pt_session_tick_one(pt_session_t *s, uint32_t now_ms)
     } else if (d == &s->open) {
         s->open.on = false;
         char why[64];
-        snprintf(why, sizeof(why), "realtime connect timed out after %us", PT_SESSION_CONNECT_TIMEOUT_MS / 1000u);
+        snprintf(why, sizeof(why), "%s connect timed out after %us", engine(s->live),
+                 PT_SESSION_CONNECT_TIMEOUT_MS / 1000u);
         open_failed(s, why, now_ms);
     } else if (d == &s->check) {
         reconnect(s, now_ms);

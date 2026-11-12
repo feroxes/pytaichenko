@@ -6,6 +6,7 @@
 #define LIVE_SAMPLE_RATE 24000
 #define LIVE_ACK_DELAY_MS 800
 #define LIVE_PREFIX "gpt-live"
+#define HELPER_ERROR "responses_validation_failed"
 
 const char PT_LIVE_SUFFIX[] =
     "Volume changes and ending the conversation are carried out by your helper. Wherever these instructions say to "
@@ -46,6 +47,11 @@ static cJSON *audio_section(const pt_settings_t *s)
     return audio;
 }
 
+static const char *helper_effort(const char *effort)
+{
+    return strcmp(effort, "minimal") == 0 ? "none" : effort;
+}
+
 static cJSON *delegation(const pt_settings_t *s)
 {
     cJSON *tools = pt_tools_object(s->assistant.language);
@@ -58,9 +64,10 @@ static cJSON *delegation(const pt_settings_t *s)
     ok = ok && pt_rt_add_str(responses, "instructions", HELPER_INSTRUCTIONS);
     if (ok && s->openai.reasoning_effort[0] != '\0') {
         cJSON *reasoning = cJSON_CreateObject();
-        bool r_ok = reasoning != NULL && pt_rt_add_str(reasoning, "effort", s->openai.reasoning_effort);
+        bool r_ok = reasoning != NULL && pt_rt_add_str(reasoning, "effort", helper_effort(s->openai.reasoning_effort));
         ok = pt_rt_attach(responses, "reasoning", reasoning) && r_ok && ok;
     }
+    ok = ok && cJSON_AddFalseToObject(responses, "parallel_tool_calls") != NULL;
     if (ok) {
         ok = pt_rt_attach(responses, "tools", tools);
     } else {
@@ -150,6 +157,15 @@ char *pt_rt_live_start(const pt_settings_t *s, const pt_rt_msg_t *history, size_
 char *pt_rt_live_append(const int16_t *pcm, size_t n)
 {
     return pt_rt_audio_message("session.input_audio.append", pcm, n);
+}
+
+bool pt_rt_live_helper_error(const pt_rt_event_t *e)
+{
+    if (e == NULL || e->kind != PT_RT_ERROR || e->text == NULL) {
+        return false;
+    }
+    size_t n = sizeof(HELPER_ERROR) - 1;
+    return strncmp(e->text, HELPER_ERROR, n) == 0 && (e->text[n] == '\0' || e->text[n] == ':');
 }
 
 const char *pt_rt_live_close(void)

@@ -414,9 +414,84 @@ void test_live_error_before_started_fails_fast(void)
     fp_pump(&F);
     TEST_ASSERT_EQUAL_INT(1, failures);
     TEST_ASSERT_EQUAL_INT(0, readies);
-    TEST_ASSERT_NOT_NULL(strstr(last_failure, "realtime error"));
+    TEST_ASSERT_NOT_NULL(strstr(last_failure, "live error"));
+    TEST_ASSERT_NULL(strstr(last_failure, "realtime"));
     TEST_ASSERT_NOT_NULL(strstr(last_failure, "invalid_value"));
     TEST_ASSERT_EQUAL_size_t(1, fp_count(&F, FP_RT_CLOSE));
+}
+
+static void message(const char *json)
+{
+    pt_session_rt_message(K, json, strlen(json), now);
+}
+
+void test_live_helper_error_before_started_is_not_fatal(void)
+{
+    make_live();
+    F.conn[1].manual = true;
+    pt_session_for_turn(K, false, now);
+    pt_session_rt_opened(K, now);
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.start", 1));
+    message("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"code\":"
+            "\"responses_validation_failed\",\"message\":\"Unsupported value: 'minimal'\"}}");
+    TEST_ASSERT_EQUAL_INT(0, failures);
+    TEST_ASSERT_EQUAL_INT(0, readies);
+    TEST_ASSERT_EQUAL_size_t(0, fp_count(&F, FP_RT_CLOSE));
+    TEST_ASSERT_TRUE(log_has("live error: responses_validation_failed: Unsupported value: 'minimal'"));
+    message("{\"type\":\"session.started\",\"session\":{\"model\":\"gpt-live-1\",\"audio\":{\"output\":{\"voice\":"
+            "\"marin\"}}}}");
+    TEST_ASSERT_EQUAL_INT(1, readies);
+    TEST_ASSERT_EQUAL_INT(0, failures);
+    TEST_ASSERT_TRUE(pt_session_gen(K) != 0);
+}
+
+void test_live_other_error_before_started_stays_fatal(void)
+{
+    make_live();
+    F.conn[1].manual = true;
+    pt_session_for_turn(K, false, now);
+    pt_session_rt_opened(K, now);
+    message("{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"code\":\"invalid_value\","
+            "\"message\":\"bad voice\"}}");
+    TEST_ASSERT_EQUAL_INT(1, failures);
+    TEST_ASSERT_EQUAL_STRING("live error invalid_value: bad voice", last_failure);
+    TEST_ASSERT_EQUAL_size_t(1, fp_count(&F, FP_RT_CLOSE));
+}
+
+void test_live_logs_use_live_wording(void)
+{
+    make_live();
+    turn();
+    fp_push(&F, "{\"type\":\"error\",\"error\":{\"code\":\"invalid_value\",\"message\":\"bad\"}}");
+    TEST_ASSERT_TRUE(log_has("live error: invalid_value: bad"));
+    TEST_ASSERT_FALSE(log_mentions("realtime error"));
+    *NEW = *OLD;
+    snprintf(NEW->openai.voice, sizeof(NEW->openai.voice), "cedar");
+    pt_session_settings(K, NEW);
+    turn();
+    TEST_ASSERT_TRUE(log_has("settings changed; opening a fresh live session"));
+    TEST_ASSERT_FALSE(log_mentions("realtime"));
+}
+
+void test_live_connect_timeout_uses_live_wording(void)
+{
+    make_live();
+    F.conn[1].manual = true;
+    pt_session_for_turn(K, false, now);
+    pt_session_rt_opened(K, now);
+    advance(PT_SESSION_CONNECT_TIMEOUT_MS);
+    TEST_ASSERT_EQUAL_STRING("live connect timed out after 10s", last_failure);
+}
+
+void test_realtime_logs_keep_realtime_wording(void)
+{
+    make(OLD);
+    turn();
+    fp_push(&F, "{\"type\":\"error\",\"error\":{\"code\":\"invalid_value\",\"message\":\"bad\"}}");
+    TEST_ASSERT_TRUE(log_has("realtime error: invalid_value: bad"));
+    pt_session_settings(K, NEW);
+    turn();
+    TEST_ASSERT_TRUE(log_has("settings changed; opening a fresh realtime session"));
 }
 
 void test_live_second_turn_sends_no_realtime_messages(void)
@@ -503,6 +578,11 @@ int main(void)
     RUN_TEST(test_connect_times_out_after_ten_seconds);
     RUN_TEST(test_live_opens_with_session_start);
     RUN_TEST(test_live_error_before_started_fails_fast);
+    RUN_TEST(test_live_helper_error_before_started_is_not_fatal);
+    RUN_TEST(test_live_other_error_before_started_stays_fatal);
+    RUN_TEST(test_live_logs_use_live_wording);
+    RUN_TEST(test_live_connect_timeout_uses_live_wording);
+    RUN_TEST(test_realtime_logs_keep_realtime_wording);
     RUN_TEST(test_live_second_turn_sends_no_realtime_messages);
     RUN_TEST(test_live_history_goes_into_next_start_once);
     RUN_TEST(test_live_close_when_idle_closes_now);

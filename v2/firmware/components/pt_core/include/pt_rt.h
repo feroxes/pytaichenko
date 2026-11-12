@@ -66,3 +66,4 @@ char *pt_rt_live_start(const pt_settings_t *s, const pt_rt_msg_t *history, size_
 char *pt_rt_live_append(const int16_t *pcm, size_t n);
 void pt_rt_live_tool_output(const pt_tool_call_t *call, const char *output, bool respond, pt_rt_send_fn send, void *ctx);
 const char *pt_rt_live_close(void);
+bool pt_rt_live_helper_error(const pt_rt_event_t *e);

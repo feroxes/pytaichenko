@@ -6,7 +6,7 @@
   <img src="site/assets/photos-v2/pytaichenko-wide.jpg" width="720" alt="Питайченко на столі: невисокий круглий чорний корпус, верх у дрібних отворах, під ним тонка біла смужка кільця, збоку маленький отвір мікрофона">
 </p>
 
-<p align="center"><b>Голосова колонка, яку збирають самі: вона чує ключову фразу просто на платі й веде розмову з OpenAI Realtime API.</b></p>
+<p align="center"><b>Голосова колонка, яку збирають самі: вона чує ключову фразу просто на платі й веде розмову з OpenAI Realtime API або GPT-Live.</b></p>
 
 <p align="center">
   <a href="https://github.com/feroxes/pytaichenko/releases/latest"><img src="https://img.shields.io/github/v/release/feroxes/pytaichenko?label=%D0%B2%D0%B8%D0%BF%D1%83%D1%81%D0%BA" alt="Останній випуск"></a>
@@ -39,7 +39,7 @@
 </p>
 
 - В обох версіях колонка розпізнає ключову фразу на власній платі. Доки вона не почула фразу або ви не натиснули кнопку, жоден звук із неї нікуди не йде.
-- Далі версія 2 надсилає ваш голос просто в OpenAI Realtime API. Колонка зберігає ваш ключ OpenAI і сама відтворює відповідь голосом.
+- Далі версія 2 надсилає ваш голос просто в OpenAI Realtime API або GPT-Live, як ви оберете на її сторінці налаштувань. Колонка зберігає ваш ключ OpenAI і сама відтворює відповідь голосом.
 - Версія 1, як на малюнку, надсилає ваш голос службі `voice-hub` — невеликому серверу в Docker на комп'ютері у вашій домашній мережі. Служба зберігає ваш ключ OpenAI, веде розмову з OpenAI Realtime API й повертає колонці відповідь голосом.
 - Після відповіді колонка ще кілька секунд слухає продовження, а потім знову чекає ключову фразу.
 
@@ -81,4 +81,4 @@
 - [Espressif](https://www.espressif.com) — за [ESP-IDF](https://github.com/espressif/esp-idf) і компоненти, на яких зібрано прошивку версії 2, серед них esp-sr, що очищує звук двох мікрофонів, і esp-tflite-micro, що запускає моделі ключових фраз.
 - [ESPHome](https://esphome.io) — за систему збирання прошивки версії 1, її компоненти голосу й ключових фраз та ESP Web Tools, що ставить прошивку обох версій з браузера.
 - Open Home Foundation — за [моделі microWakeWord](https://github.com/esphome/micro-wake-word-models) Hey Jarvis, Okay Nabu і Hey Mycroft.
-- [OpenAI API](https://platform.openai.com) — за розмову в реальному часі (Realtime API).
+- [OpenAI API](https://platform.openai.com) — за розмову в реальному часі (Realtime API або GPT-Live).

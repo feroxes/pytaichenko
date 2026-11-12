@@ -4,6 +4,16 @@ Notable changes to Pytaichenko, newest first. The format follows [Keep a Changel
 
 Помітні зміни «Питайченка», найновіші зверху. Колонок дві, у кожної своя лінія версій: 1.x — версія 1 (з домашнім сервером), 2.x — версія 2 (сама по собі). У межах лінії нове середнє число означає нові можливості, останнє — виправлення.
 
+## [2.1.0] - 2026-11-12
+
+### Added
+
+- Speaker: it can now talk through OpenAI GPT-Live (`gpt-live-1`). Choose it in the “Model” field on the speaker's settings page: the conversation is faster and more natural. GPT-Live is billed at $0.05 per minute of conversation plus a small charge for the helper model that carries out actions such as changing the volume or ending the conversation. The realtime models (`gpt-realtime-2.1-mini`, the default, and `gpt-realtime-2.1`) work as before.
+
+### Українською
+
+- Колонка тепер може говорити через OpenAI GPT-Live (`gpt-live-1`). Оберіть його в полі «Модель» на сторінці налаштувань колонки: розмова швидша й природніша. GPT-Live оплачується по 0,05 $ за хвилину розмови плюс невелика плата за допоміжну модель, яка виконує дії, як-от зміну гучності чи завершення розмови. Моделі реального часу (`gpt-realtime-2.1-mini`, типова, і `gpt-realtime-2.1`) працюють як і раніше.
+
 ## [2.0.1] - 2026-11-10
 
 ### Fixed
@@ -63,6 +73,7 @@ The first public release: everything needed to build the speaker and run it at h
 - Сервер: `voice-hub` працює в Docker на комп'ютері в домашній мережі й веде розмову через OpenAI Realtime API з вашим власним ключем. На його сторінці налаштувань, українською й англійською, задають пароль, ключ OpenAI, мову й інструкції розмови та часи, знаходять і забирають колонки, обирають їм ключову фразу.
 - Сайт: сторінка проєкту українською й англійською — деталі й де їх купити, інструменти, друк, пайка, збирання, встановлення прошивки, запуск сервера й «Якщо щось не так».
 
+[2.1.0]: https://github.com/feroxes/pytaichenko/releases/tag/v2.1.0
 [2.0.1]: https://github.com/feroxes/pytaichenko/releases/tag/v2.0.1
 [2.0.0]: https://github.com/feroxes/pytaichenko/releases/tag/v2.0.0
 [1.0.0]: https://github.com/feroxes/pytaichenko/releases/tag/v1.0.0

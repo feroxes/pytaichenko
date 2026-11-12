@@ -9,7 +9,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Питайченко">
 <meta property="og:title" content="Питайченко — голосова колонка для розмови з GPT">
-<meta property="og:description" content="Голосова колонка, яку збирають самі: ESP32-S3 у надрукованому корпусі, ключова фраза на самій платі, розмова з OpenAI Realtime API. Деталі, друк, пайка, збирання й прошивка з браузера — покроково.">
+<meta property="og:description" content="Голосова колонка, яку збирають самі: ESP32-S3 у надрукованому корпусі, ключова фраза на самій платі, розмова з OpenAI Realtime API або GPT-Live. Деталі, друк, пайка, збирання й прошивка з браузера — покроково.">
 <meta property="og:url" content="https://feroxes.github.io/pytaichenko/">
 <meta property="og:image" content="https://feroxes.github.io/pytaichenko/assets/photos-v2/pytaichenko.jpg">
 <meta property="og:image:width" content="1200">
@@ -103,7 +103,7 @@
         <li data-i18n="v2.can.follow">Після відповіді можна питати далі без фрази</li>
         <li data-i18n="v2.can.stop">«Дякую, все» завершує розмову</li>
         <li data-i18n="v2.can.volume">Гучність змінюється голосом</li>
-        <li data-i18n="v2.can.settings">Налаштування — на сторінці самої колонки, яку відкривають у браузері: ключ OpenAI, мова розмови, голос, гучність, ключова фраза</li>
+        <li data-i18n="v2.can.settings">Налаштування — на сторінці самої колонки, яку відкривають у браузері: ключ OpenAI, модель (звичайна розмова в реальному часі або GPT-Live), мова розмови, голос, гучність, ключова фраза</li>
         <li data-i18n="v2.can.update">Оновлюється зі сторінки налаштувань, без кабелю: нову прошивку колонка бере з GitHub або з файлу на комп'ютері</li>
       </ul>
     </div>
@@ -1971,7 +1971,7 @@
         <li data-i18n="v2.firmware.need.cable">Кабель USB-C, що передає дані: кабель лише для заряджання не підійде.</li>
         <li data-i18n="v2.firmware.need.wifi">Мережа Wi-Fi на 2,4 ГГц: мереж на 5 ГГц плата не бачить.</li>
         <li>
-          <span data-i18n="v2.firmware.need.key">Ключ API OpenAI. Розмови оплачуються окремо, за тарифами OpenAI, тож для колонки краще завести окремий проєкт з обмеженням витрат.</span>
+          <span data-i18n="v2.firmware.need.key">Ключ API OpenAI. Розмови оплачуються окремо, за тарифами OpenAI (GPT-Live — 0,05 $ за хвилину розмови плюс невелика плата за допоміжну модель), тож для колонки краще завести окремий проєкт з обмеженням витрат.</span>
           <span class="fw-links">
             <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" data-i18n="v2.firmware.need.key_link">Ключі API на сайті OpenAI</a>
           </span>

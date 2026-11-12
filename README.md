@@ -6,7 +6,7 @@
   <img src="site/assets/photos-v2/pytaichenko-wide.jpg" width="720" alt="Pytaichenko on a desk: a low round black case, the top covered in small holes, a thin white ring strip under it and a small microphone hole on the side">
 </p>
 
-<p align="center"><b>A voice speaker you build yourself: it hears its wake phrase on the board and holds the conversation with the OpenAI Realtime API.</b></p>
+<p align="center"><b>A voice speaker you build yourself: it hears its wake phrase on the board and holds the conversation with the OpenAI Realtime API or GPT-Live.</b></p>
 
 <p align="center">
   <a href="https://github.com/feroxes/pytaichenko/releases/latest"><img src="https://img.shields.io/github/v/release/feroxes/pytaichenko" alt="Latest release"></a>
@@ -39,7 +39,7 @@ There are two versions of the speaker, each with its own hardware and its own pa
 </p>
 
 - In both versions the speaker recognises the wake phrase on its own board. Until it hears the phrase or you press the button, no sound leaves it.
-- Version 2 then sends your voice straight to the OpenAI Realtime API. The speaker keeps your OpenAI key and plays the spoken answer itself.
+- Version 2 then sends your voice straight to the OpenAI Realtime API or GPT-Live, as you choose on its settings page. The speaker keeps your OpenAI key and plays the spoken answer itself.
 - Version 1, shown in the picture, sends your voice to `voice-hub`, a small service in Docker on a computer in your home network. The service keeps your OpenAI key, holds the conversation with the OpenAI Realtime API and sends the spoken answer back to the speaker.
 - After the answer the speaker listens a few more seconds for a follow-up, then waits for the wake phrase again.
 
@@ -81,4 +81,4 @@ If something does not work, see If something goes wrong for [version 2](https://
 - [Espressif](https://www.espressif.com), for [ESP-IDF](https://github.com/espressif/esp-idf) and the components the version 2 firmware is built on, among them esp-sr, which cleans up the sound of the two microphones, and esp-tflite-micro, which runs the wake phrase models.
 - [ESPHome](https://esphome.io), for the version 1 firmware build system, its voice and wake phrase components and ESP Web Tools, which installs the firmware of both versions from the browser.
 - The Open Home Foundation, for the [microWakeWord models](https://github.com/esphome/micro-wake-word-models) Hey Jarvis, Okay Nabu and Hey Mycroft.
-- The [OpenAI API](https://platform.openai.com), for the conversation in real time (the Realtime API).
+- The [OpenAI API](https://platform.openai.com), for the conversation in real time (the Realtime API or GPT-Live).

@@ -351,7 +351,7 @@ void setUp(void)
     openai_seen_key[0] = '\0';
     ota_check_calls = 0;
     ota_check_result = PT_OK;
-    snprintf(ota_check_version, sizeof(ota_check_version), "2.1.0");
+    snprintf(ota_check_version, sizeof(ota_check_version), "2.2.0");
     ota_install_calls = 0;
     ota_install_result = PT_OK;
     ota_install_url[0] = '\0';
@@ -1657,7 +1657,7 @@ static void test_update_get_reports_the_latest_version(void)
     TEST_ASSERT_EQUAL_INT_MESSAGE(200, r.status, r.body);
     cJSON *j = parse_body(&r);
     TEST_ASSERT_EQUAL_STRING(pt_version(), cJSON_GetObjectItem(j, "current")->valuestring);
-    TEST_ASSERT_EQUAL_STRING("2.1.0", cJSON_GetObjectItem(j, "latest")->valuestring);
+    TEST_ASSERT_EQUAL_STRING("2.2.0", cJSON_GetObjectItem(j, "latest")->valuestring);
     TEST_ASSERT_TRUE(cJSON_IsTrue(cJSON_GetObjectItem(j, "available")));
     cJSON_Delete(j);
     pt_http_resp_free(&r);
@@ -1715,13 +1715,13 @@ static void test_update_post_installs_the_latest(void)
     TEST_ASSERT_EQUAL_INT_MESSAGE(200, r.status, r.body);
     cJSON *j = parse_body(&r);
     TEST_ASSERT_TRUE(cJSON_IsTrue(cJSON_GetObjectItem(j, "installing")));
-    TEST_ASSERT_EQUAL_STRING("2.1.0", cJSON_GetObjectItem(j, "version")->valuestring);
+    TEST_ASSERT_EQUAL_STRING("2.2.0", cJSON_GetObjectItem(j, "version")->valuestring);
     cJSON_Delete(j);
     pt_http_resp_free(&r);
     TEST_ASSERT_EQUAL_INT(1, ota_install_calls);
-    TEST_ASSERT_EQUAL_STRING("https://github.com/feroxes/pytaichenko/releases/download/v2.1.0/x.ota.bin",
+    TEST_ASSERT_EQUAL_STRING("https://github.com/feroxes/pytaichenko/releases/download/v2.2.0/x.ota.bin",
                              ota_install_url);
-    TEST_ASSERT_EQUAL_STRING("2.1.0", ota_install_version);
+    TEST_ASSERT_EQUAL_STRING("2.2.0", ota_install_version);
 }
 
 static void test_update_post_with_nothing_newer_is_no_release(void)
@@ -1887,7 +1887,7 @@ static void test_update_is_logged_without_urls_or_secrets(void)
     pt_http_resp_free(&r);
     char *log = pt_log_json(L, 0);
     TEST_ASSERT_NOT_NULL(log);
-    TEST_ASSERT_NOT_NULL(strstr(log, "2.1.0"));
+    TEST_ASSERT_NOT_NULL(strstr(log, "2.2.0"));
     TEST_ASSERT_NULL(strstr(log, "github.com"));
     free(log);
 }

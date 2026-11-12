@@ -764,7 +764,7 @@ static void run_held(void)
 
 static void run_start(void)
 {
-    if (!s_start_pending) {
+    if (!s_start_pending || s_held_on) {
         return;
     }
     uint32_t now = now_ms();

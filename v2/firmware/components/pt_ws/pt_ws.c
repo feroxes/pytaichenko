@@ -27,6 +27,7 @@
 #define WS_PROBE_NET_TIMEOUT_MS 3000
 #define WS_CONTROL_SLOTS 16
 #define WS_SEND_TIMEOUT_MS 5000
+#define WS_CLOSE_WAIT_MS 1000
 #define WS_URL_MAX 192
 #define WS_HEADER_MAX 400
 #define WS_OP_CONT 0x0
@@ -45,6 +46,7 @@ typedef struct conn {
     int net_timeout_ms;
     int64_t started_us;
     volatile bool dead;
+    volatile bool closing;
     volatile bool opened;
     int http_status;
     char *msg;
@@ -140,6 +142,13 @@ static void conn_kill(conn_t *c)
     xSemaphoreGiveRecursive(c->lock);
 }
 
+static void conn_mute(conn_t *c)
+{
+    xSemaphoreTakeRecursive(c->lock, portMAX_DELAY);
+    c->closing = true;
+    xSemaphoreGiveRecursive(c->lock);
+}
+
 static void conn_free(conn_t *c)
 {
     if (c == NULL) {
@@ -166,7 +175,7 @@ static void finish(conn_t *c, pt_ws_status_t why)
         c->msg_len = 0;
         c->msg_cap = 0;
         ESP_LOGI(TAG, "connection %u ended, reason %d", (unsigned)c->gen, (int)why);
-        if (c->ev.closed != NULL) {
+        if (!c->closing && c->ev.closed != NULL) {
             c->ev.closed(c->ev.ctx, why);
         }
     }
@@ -195,7 +204,7 @@ static pt_ws_status_t lost_reason(const conn_t *c, esp_websocket_error_type_t ty
 static void on_connected(conn_t *c)
 {
     xSemaphoreTakeRecursive(c->lock, portMAX_DELAY);
-    if (!c->dead) {
+    if (!c->dead && !c->closing) {
         c->opened = true;
         esp_websocket_client_set_headers(c->client, "");
         ESP_LOGI(TAG, "connection %u open", (unsigned)c->gen);
@@ -237,7 +246,7 @@ static void on_data(conn_t *c, const esp_websocket_event_data_t *d)
         return;
     }
     xSemaphoreTakeRecursive(c->lock, portMAX_DELAY);
-    if (c->dead) {
+    if (c->dead || c->closing) {
         xSemaphoreGiveRecursive(c->lock);
         return;
     }
@@ -377,6 +386,24 @@ static void run_open(conn_t *c)
     }
 }
 
+static void close_live(conn_t *c)
+{
+    if (pt_rt_is_live(c->model) && c->opened && !c->dead && c->client != NULL &&
+        esp_websocket_client_is_connected(c->client)) {
+        esp_websocket_client_close(c->client, pdMS_TO_TICKS(WS_CLOSE_WAIT_MS));
+    }
+}
+
+static void run_close(uint32_t gen)
+{
+    conn_t *c = s_active;
+    if (c == NULL || c->gen != gen) {
+        return;
+    }
+    close_live(c);
+    drop_active();
+}
+
 static void run_send(char *json)
 {
     atomic_fetch_sub(&s_pending_sends, 1);
@@ -403,9 +430,7 @@ static void manager(void *arg)
             run_open(cmd.conn);
             break;
         case CMD_CLOSE:
-            if (s_active != NULL && s_active->gen == cmd.gen) {
-                drop_active();
-            }
+            run_close(cmd.gen);
             break;
         case CMD_STOP:
             if (s_active != NULL && s_active->gen == cmd.gen && s_active->client != NULL) {
@@ -505,9 +530,11 @@ void pt_ws_close(void)
         return;
     }
     uint32_t gen = old->gen;
-    conn_kill(old);
+    conn_mute(old);
     cmd_t cmd = {.kind = CMD_CLOSE, .gen = gen};
-    xQueueSend(s_queue, &cmd, pdMS_TO_TICKS(1000));
+    if (xQueueSend(s_queue, &cmd, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        conn_kill(old);
+    }
 }
 
 typedef enum { PROBE_OPENED, PROBE_MESSAGE, PROBE_CLOSED } probe_kind_t;
@@ -554,6 +581,7 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
 {
     bool update_sent = false;
     bool live = pt_rt_is_live(s->openai.model);
+    bool helper_failed = false;
     for (;;) {
         int64_t left_us = deadline_us - esp_timer_get_time();
         if (left_us <= 0) {
@@ -567,7 +595,7 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
             return item.why;
         }
         if (live && item.kind == PROBE_OPENED) {
-            char *start = pt_rt_live_start(s, NULL, 0, false);
+            char *start = pt_rt_live_start(s, NULL, 0, true);
             if (start == NULL || !conn_send(c, start)) {
                 free(start);
                 return PT_WS_NO_NETWORK;
@@ -594,18 +622,29 @@ static pt_ws_status_t probe_wait(conn_t *c, QueueHandle_t q, const pt_settings_t
         if (kind == PT_RT_SESSION_READY && e.voice[0] != '\0') {
             copy_text(voice, voice_len, e.voice);
         }
-        if (kind == PT_RT_ERROR && e.text != NULL) {
+        bool helper_error = live && pt_rt_live_helper_error(&e);
+        if (kind == PT_RT_ERROR && e.text != NULL && !(helper_error && helper_failed)) {
             copy_text(error, error_len, e.text);
             ESP_LOGW(TAG, "connection check: OpenAI error %s", e.text);
         }
+        if (kind == PT_RT_LIVE_CLOSED) {
+            char why[64];
+            snprintf(why, sizeof(why), "live session closed: %s", e.status[0] != '\0' ? e.status : "unknown");
+            copy_text(error, error_len, why);
+            ESP_LOGW(TAG, "connection check: %s", why);
+        }
         pt_rt_event_free(&e);
-        if (kind == PT_RT_ERROR) {
+        if (helper_error) {
+            helper_failed = true;
+            continue;
+        }
+        if (kind == PT_RT_ERROR || kind == PT_RT_LIVE_CLOSED) {
             return PT_WS_REJECTED;
         }
         if (live) {
             if (started) {
                 conn_send(c, pt_rt_live_close());
-                return PT_WS_OK;
+                return helper_failed ? PT_WS_REJECTED : PT_WS_OK;
             }
         } else if (created && !update_sent) {
             char *update = pt_rt_session_update(s);
@@ -642,6 +681,7 @@ pt_ws_status_t pt_ws_probe(const pt_settings_t *s, uint32_t timeout_ms, char *mo
         int64_t deadline_us = esp_timer_get_time() + (int64_t)timeout_ms * 1000;
         if (conn_start(c)) {
             status = probe_wait(c, q, s, deadline_us, model, model_len, voice, voice_len, error, error_len);
+            close_live(c);
         }
         conn_free(c);
     }

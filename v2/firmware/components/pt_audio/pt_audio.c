@@ -343,8 +343,10 @@ size_t pt_audio_play(const int16_t *pcm24k, size_t n)
         return 0;
     xSemaphoreTake(lock, portMAX_DELAY);
     size_t pushed = pt_pcm_queue_push(queue, pcm24k, n);
-    if (pushed > 0)
+    if (pushed > 0) {
         stream_open = true;
+        stream_ended = false;
+    }
     xSemaphoreGive(lock);
     return pushed;
 }

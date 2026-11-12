@@ -6,7 +6,7 @@
 
 #define MAX_DURATION_MS 0x3FFFFFFFu
 
-typedef enum { ST_NONE, ST_OPENING, ST_WAIT_CREATED, ST_WAIT_UPDATED, ST_READY } state_t;
+typedef enum { ST_NONE, ST_OPENING, ST_WAIT_CREATED, ST_WAIT_UPDATED, ST_WAIT_STARTED, ST_READY } state_t;
 typedef enum { WAIT_NONE, WAIT_OPEN, WAIT_CHECK } waiting_t;
 
 typedef struct {
@@ -30,6 +30,10 @@ struct pt_session {
     state_t state;
     waiting_t waiting;
     bool lost;
+    bool live;
+    char **hist_role;
+    char **hist_text;
+    size_t hist_n;
     uint32_t gen;
     char model[64];
     deadline_t open;
@@ -92,6 +96,18 @@ static void drop_deferred(pt_session_t *s)
     s->hold.on = false;
 }
 
+static void clear_history(pt_session_t *s)
+{
+    for (size_t i = 0; i < s->hist_n; i++) {
+        free(s->hist_role[i]);
+        free(s->hist_text[i]);
+    }
+    free(s->hist_role);
+    free(s->hist_text);
+    s->hist_role = s->hist_text = NULL;
+    s->hist_n = 0;
+}
+
 pt_session_t *pt_session_new(const pt_port_t *port, pt_log_t *log, const pt_session_hooks_t *hooks)
 {
     if (port == NULL || hooks == NULL) {
@@ -130,6 +146,7 @@ void pt_session_free(pt_session_t *s)
         close_connection(s);
     }
     drop_deferred(s);
+    clear_history(s);
     free(s);
 }
 
@@ -213,6 +230,7 @@ static void open_session(pt_session_t *s, uint32_t now_ms)
         return;
     }
     s->used = s->fresh;
+    s->live = pt_rt_is_live(s->used.openai.model);
     s->gen++;
     if (s->gen == 0) {
         s->gen = 1;
@@ -244,6 +262,15 @@ void pt_session_for_turn(pt_session_t *s, bool cancel_previous, uint32_t now_ms)
     if (s->state == ST_READY && pt_settings_session_changed(&s->used, &s->fresh)) {
         pt_log_add(s->log, log_time(now_ms), "settings changed; opening a fresh realtime session");
         pt_session_detach(s);
+    }
+    if (s->state == ST_READY && s->live && s->lost) {
+        pt_session_detach(s);
+    }
+    if (s->state == ST_READY && s->live) {
+        if (s->hooks.ready != NULL) {
+            s->hooks.ready(s->hooks.ctx, now_ms);
+        }
+        return;
     }
     if (s->state == ST_READY && cancel_previous) {
         if (s->lost) {
@@ -280,7 +307,11 @@ void pt_session_release(pt_session_t *s, uint32_t gen, bool cancel, bool clear, 
     if (s->state != ST_READY || gen == 0 || gen != s->gen) {
         return;
     }
-    if (s->lost) {
+    if (s->live) {
+        if (s->lost) {
+            drop = true;
+        }
+    } else if (s->lost) {
         if (cancel || clear) {
             pt_log_add(s->log, log_time(now_ms), "realtime send failed: realtime session is not open");
         }
@@ -324,7 +355,52 @@ void pt_session_close_when_idle(pt_session_t *s, float delay_s, uint32_t now_ms)
         }
         return;
     }
+    if (s->live) {
+        pt_session_end_live(s);
+    }
     set_deadline(&s->idle, pt_time_after(now_ms, pt_time_ms(delay_s)));
+}
+
+bool pt_session_live(const pt_session_t *s)
+{
+    return s != NULL && s->state != ST_NONE && s->live;
+}
+
+void pt_session_set_history(pt_session_t *s, const pt_rt_msg_t *msgs, size_t n)
+{
+    clear_history(s);
+    if (msgs == NULL || n == 0) {
+        return;
+    }
+    s->hist_role = calloc(n, sizeof(char *));
+    s->hist_text = calloc(n, sizeof(char *));
+    if (s->hist_role == NULL || s->hist_text == NULL) {
+        free(s->hist_role);
+        free(s->hist_text);
+        s->hist_role = s->hist_text = NULL;
+        return;
+    }
+    for (size_t i = 0; i < n; i++) {
+        s->hist_role[i] = strdup(msgs[i].role != NULL ? msgs[i].role : "user");
+        s->hist_text[i] = strdup(msgs[i].text != NULL ? msgs[i].text : "");
+        if (s->hist_role[i] == NULL || s->hist_text[i] == NULL) {
+            s->hist_n = i + 1;
+            clear_history(s);
+            return;
+        }
+    }
+    s->hist_n = n;
+}
+
+void pt_session_end_live(pt_session_t *s)
+{
+    if (s == NULL || !s->live || s->state != ST_READY) {
+        return;
+    }
+    if (!s->lost) {
+        send_raw(s, pt_rt_live_close());
+    }
+    pt_session_detach(s);
 }
 
 bool pt_session_hold(pt_session_t *s, uint32_t until_ms)
@@ -340,15 +416,43 @@ bool pt_session_hold(pt_session_t *s, uint32_t until_ms)
 
 void pt_session_rt_opened(pt_session_t *s, uint32_t now_ms)
 {
-    (void)now_ms;
-    if (s->state == ST_OPENING) {
-        s->state = ST_WAIT_CREATED;
+    if (s->state != ST_OPENING) {
+        return;
     }
+    if (!s->live) {
+        s->state = ST_WAIT_CREATED;
+        return;
+    }
+    const pt_rt_msg_t *msgs = NULL;
+    pt_rt_msg_t *list = NULL;
+    if (s->hist_n > 0) {
+        list = calloc(s->hist_n, sizeof(*list));
+        if (list == NULL) {
+            open_failed(s, "could not build the session start", now_ms);
+            return;
+        }
+        for (size_t i = 0; i < s->hist_n; i++) {
+            list[i].role = s->hist_role[i];
+            list[i].text = s->hist_text[i];
+        }
+        msgs = list;
+    }
+    char *start = pt_rt_live_start(&s->used, msgs, s->hist_n, true);
+    free(list);
+    if (start == NULL) {
+        open_failed(s, "could not build the session start", now_ms);
+        return;
+    }
+    clear_history(s);
+    s->state = ST_WAIT_STARTED;
+    send_raw(s, start);
+    free(start);
 }
 
 void pt_session_rt_failed(pt_session_t *s, const char *why, uint32_t now_ms)
 {
-    if (s->state == ST_OPENING || s->state == ST_WAIT_CREATED || s->state == ST_WAIT_UPDATED) {
+    if (s->state == ST_OPENING || s->state == ST_WAIT_CREATED || s->state == ST_WAIT_UPDATED ||
+        s->state == ST_WAIT_STARTED) {
         open_failed(s, why != NULL && why[0] != '\0' ? why : "realtime connection failed", now_ms);
     }
 }
@@ -361,7 +465,25 @@ static void handshake(pt_session_t *s, const pt_rt_event_t *e, uint32_t now_ms)
         open_failed(s, why, now_ms);
         return;
     }
+    if (e->kind == PT_RT_LIVE_CLOSED) {
+        char why[64];
+        snprintf(why, sizeof(why), "live session closed: %s", e->status);
+        open_failed(s, why, now_ms);
+        return;
+    }
     if (e->kind != PT_RT_SESSION_READY) {
+        return;
+    }
+    if (s->state == ST_WAIT_STARTED && strcmp(e->status, "started") == 0) {
+        s->state = ST_READY;
+        s->waiting = WAIT_NONE;
+        s->open.on = false;
+        pt_log_add(s->log, log_time(now_ms), "live session ready: model %s, voice %s",
+                   e->model[0] != '\0' ? e->model : "?", e->voice[0] != '\0' ? e->voice : "?");
+        pt_log_add(s->log, log_time(now_ms), "live session opened");
+        if (s->hooks.ready != NULL) {
+            s->hooks.ready(s->hooks.ctx, now_ms);
+        }
         return;
     }
     if (s->state == ST_WAIT_CREATED && strcmp(e->status, "created") == 0) {
@@ -390,9 +512,17 @@ static void handshake(pt_session_t *s, const pt_rt_event_t *e, uint32_t now_ms)
     }
 }
 
-static void handle_closed(pt_session_t *s, uint32_t now_ms)
+static void handle_closed(pt_session_t *s, const char *reason, uint32_t now_ms)
 {
-    pt_log_add(s->log, log_time(now_ms), "realtime session closed");
+    if (s->live) {
+        if (reason != NULL) {
+            pt_log_add(s->log, log_time(now_ms), "live session closed: %s", reason);
+        } else {
+            pt_log_add(s->log, log_time(now_ms), "live session closed");
+        }
+    } else {
+        pt_log_add(s->log, log_time(now_ms), "realtime session closed");
+    }
     s->lost = true;
     if (s->waiting == WAIT_CHECK) {
         reconnect(s, now_ms);
@@ -471,6 +601,20 @@ void pt_session_rt_message(pt_session_t *s, const char *json, size_t len, uint32
         pt_rt_event_free(&e);
         return;
     }
+    if (e.kind == PT_RT_LIVE_CLOSED) {
+        if (s->lost) {
+            pt_rt_event_free(&e);
+            return;
+        }
+        if (s->hold.on) {
+            s->lost = true;
+            defer(s, &e, true);
+            return;
+        }
+        handle_closed(s, e.status, now_ms);
+        pt_rt_event_free(&e);
+        return;
+    }
     if (s->hold.on) {
         defer(s, &e, false);
         return;
@@ -493,6 +637,9 @@ void pt_session_rt_closed(pt_session_t *s, uint32_t now_ms)
     case ST_WAIT_UPDATED:
         open_failed(s, "realtime socket closed before session.updated", now_ms);
         return;
+    case ST_WAIT_STARTED:
+        open_failed(s, "live socket closed before session.started", now_ms);
+        return;
     case ST_READY:
         break;
     }
@@ -504,7 +651,7 @@ void pt_session_rt_closed(pt_session_t *s, uint32_t now_ms)
         defer(s, NULL, true);
         return;
     }
-    handle_closed(s, now_ms);
+    handle_closed(s, NULL, now_ms);
 }
 
 static void release_hold(pt_session_t *s, uint32_t now_ms)
@@ -521,7 +668,7 @@ static void release_hold(pt_session_t *s, uint32_t now_ms)
             s->tail = NULL;
         }
         if (d->closed) {
-            handle_closed(s, now_ms);
+            handle_closed(s, d->ev.kind == PT_RT_LIVE_CLOSED ? d->ev.status : NULL, now_ms);
         } else {
             dispatch(s, &d->ev, now_ms);
         }
@@ -533,7 +680,9 @@ static void release_hold(pt_session_t *s, uint32_t now_ms)
 static void idle_close(pt_session_t *s, uint32_t now_ms)
 {
     s->idle.on = false;
-    pt_log_add(s->log, log_time(now_ms), "closing idle realtime session");
+    if (s->state == ST_READY) {
+        pt_log_add(s->log, log_time(now_ms), "closing idle realtime session");
+    }
     if (s->hooks.forget != NULL) {
         s->hooks.forget(s->hooks.ctx);
     }

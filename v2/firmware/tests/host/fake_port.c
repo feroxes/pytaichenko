@@ -6,6 +6,7 @@
 
 #include "cJSON.h"
 #include "mbedtls/base64.h"
+#include "pt_rt.h"
 
 static fp_call_t *add(fake_port_t *f, fp_kind_t kind)
 {
@@ -85,7 +86,7 @@ static void on_send(void *ctx, const char *json)
     if (cJSON_IsString(type)) {
         snprintf(c->type, sizeof(c->type), "%s", type->valuestring);
     }
-    if (strcmp(c->type, "input_audio_buffer.append") == 0) {
+    if (strcmp(c->type, "input_audio_buffer.append") == 0 || strcmp(c->type, "session.input_audio.append") == 0) {
         const cJSON *audio = cJSON_GetObjectItemCaseSensitive(msg, "audio");
         if (!cJSON_IsString(audio)) {
             abort();
@@ -97,6 +98,19 @@ static void on_send(void *ctx, const char *json)
         const cJSON *audio = cJSON_GetObjectItemCaseSensitive(session, "audio");
         const cJSON *output = cJSON_GetObjectItemCaseSensitive(audio, "output");
         const cJSON *voice = cJSON_GetObjectItemCaseSensitive(output, "voice");
+        if (cJSON_IsString(voice)) {
+            snprintf(c->voice, sizeof(c->voice), "%s", voice->valuestring);
+        }
+    }
+    if (strcmp(c->type, "session.start") == 0) {
+        const cJSON *session = cJSON_GetObjectItemCaseSensitive(msg, "session");
+        const cJSON *model = cJSON_GetObjectItemCaseSensitive(session, "model");
+        const cJSON *audio = cJSON_GetObjectItemCaseSensitive(session, "audio");
+        const cJSON *output = cJSON_GetObjectItemCaseSensitive(audio, "output");
+        const cJSON *voice = cJSON_GetObjectItemCaseSensitive(output, "voice");
+        if (cJSON_IsString(model)) {
+            snprintf(c->model, sizeof(c->model), "%s", model->valuestring);
+        }
         if (cJSON_IsString(voice)) {
             snprintf(c->voice, sizeof(c->voice), "%s", voice->valuestring);
         }
@@ -203,7 +217,9 @@ void fp_connect(fake_port_t *f)
         abort();
     }
     f->target.opened(f->target.t, *f->clock);
-    created(f, conn, open != NULL ? open->model : "?");
+    if (open == NULL || !pt_rt_is_live(open->model)) {
+        created(f, conn, open != NULL ? open->model : "?");
+    }
     fp_pump(f);
 }
 
@@ -220,7 +236,9 @@ void fp_pump(fake_port_t *f)
                 char model[64];
                 snprintf(model, sizeof(model), "%s", c.model);
                 f->target.opened(f->target.t, *f->clock);
-                created(f, c.conn, model);
+                if (!pt_rt_is_live(model)) {
+                    created(f, c.conn, model);
+                }
             }
         } else if (c.kind == FP_RT_SEND && strcmp(c.type, "session.update") == 0) {
             char json[256];
@@ -232,6 +250,19 @@ void fp_pump(fake_port_t *f)
                 snprintf(json, sizeof(json),
                          "{\"type\":\"session.updated\",\"session\":{\"audio\":{\"output\":{\"voice\":\"%s\"}}}}",
                          c.voice);
+            }
+            push_if_live(f, c.conn, json);
+        } else if (c.kind == FP_RT_SEND && strcmp(c.type, "session.start") == 0) {
+            char json[320];
+            if (conn->live_reject) {
+                snprintf(json, sizeof(json),
+                         "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"code\":\"invalid_value\","
+                         "\"message\":\"bad session\"}}");
+            } else {
+                snprintf(json, sizeof(json),
+                         "{\"type\":\"session.started\",\"session\":{\"model\":\"%s\",\"audio\":{\"output\":{\"voice\":"
+                         "\"%s\"}}}}",
+                         c.model, c.voice);
             }
             push_if_live(f, c.conn, json);
         } else if (c.kind == FP_RT_SEND && strcmp(c.type, "input_audio_buffer.clear") == 0 && !conn->silent) {
@@ -444,6 +475,34 @@ char *fp_json_delta(const char *rid, const int16_t *pcm, size_t n)
     }
     snprintf(json, len, "{\"type\":\"response.output_audio.delta\",\"response_id\":\"%s\",\"delta\":\"%s\"}", rid,
              (const char *)b64);
+    free(b64);
+    return json;
+}
+
+char *fp_json_live_delta(const int16_t *pcm, size_t n)
+{
+    unsigned char *raw = malloc(n * 2 + 1);
+    if (raw == NULL) {
+        abort();
+    }
+    for (size_t i = 0; i < n; i++) {
+        uint16_t v = (uint16_t)pcm[i];
+        raw[2 * i] = (unsigned char)(v & 0xff);
+        raw[2 * i + 1] = (unsigned char)(v >> 8);
+    }
+    size_t cap = 4 * ((n * 2 + 2) / 3) + 1;
+    unsigned char *b64 = malloc(cap);
+    size_t written = 0;
+    if (b64 == NULL || mbedtls_base64_encode(b64, cap, &written, raw, n * 2) != 0) {
+        abort();
+    }
+    free(raw);
+    size_t len = written + 64;
+    char *json = malloc(len);
+    if (json == NULL) {
+        abort();
+    }
+    snprintf(json, len, "{\"type\":\"session.output_audio.delta\",\"delta\":\"%s\"}", (const char *)b64);
     free(b64);
     return json;
 }

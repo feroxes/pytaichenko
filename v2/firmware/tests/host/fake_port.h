@@ -34,6 +34,7 @@ typedef struct {
     bool silent;
     bool reject_update;
     bool closed;
+    bool live_reject;
 } fp_conn_t;
 
 typedef struct {
@@ -79,3 +80,4 @@ size_t fp_device_count(const fake_port_t *f, pt_dev_event_t ev);
 const fp_call_t *fp_nth(const fake_port_t *f, fp_kind_t kind, size_t nth);
 
 char *fp_json_delta(const char *rid, const int16_t *pcm, size_t n);
+char *fp_json_live_delta(const int16_t *pcm, size_t n);

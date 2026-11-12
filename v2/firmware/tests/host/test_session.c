@@ -17,6 +17,7 @@ static pt_settings_t *OLD;
 static pt_settings_t *NEW;
 static int readies;
 static int failures;
+static int closes;
 static char last_failure[128];
 static char forgotten[64];
 
@@ -55,6 +56,13 @@ static void h_failed(void *ctx, const char *why, uint32_t at)
     snprintf(last_failure, sizeof(last_failure), "%s", why);
 }
 
+static void h_closed(void *ctx, uint32_t at)
+{
+    (void)ctx;
+    (void)at;
+    closes++;
+}
+
 static void h_forget(void *ctx)
 {
     (void)ctx;
@@ -67,6 +75,7 @@ static void make(const pt_settings_t *settings)
     hooks.ready = h_ready;
     hooks.failed = h_failed;
     hooks.forget = h_forget;
+    hooks.closed = h_closed;
     K = pt_session_new(&F.port, LOG, &hooks);
     TEST_ASSERT_NOT_NULL(K);
     F.target.t = K;
@@ -76,7 +85,7 @@ static void make(const pt_settings_t *settings)
 void setUp(void)
 {
     now = 5000;
-    readies = failures = 0;
+    readies = failures = closes = 0;
     last_failure[0] = '\0';
     forgotten[0] = '\0';
     OLD = malloc(sizeof(*OLD));
@@ -354,6 +363,127 @@ void test_connect_times_out_after_ten_seconds(void)
     TEST_ASSERT_EQUAL_UINT32(PT_DEADLINE_NONE, pt_session_next_deadline(K));
 }
 
+static void make_live(void)
+{
+    snprintf(OLD->openai.model, sizeof(OLD->openai.model), "gpt-live-1");
+    snprintf(OLD->openai.voice, sizeof(OLD->openai.voice), "marin");
+    make(OLD);
+}
+
+static const char *sent_json(const char *type, int conn, size_t nth)
+{
+    size_t seen = 0;
+    for (size_t i = 0; i < F.n; i++) {
+        const fp_call_t *c = &F.calls[i];
+        if (c->kind == FP_RT_SEND && c->conn == conn && strcmp(c->type, type) == 0 && seen++ == nth) {
+            return c->json;
+        }
+    }
+    return NULL;
+}
+
+static int start_input_items(size_t nth)
+{
+    cJSON *root = cJSON_Parse(sent_json("session.start", 0 + (int)(nth + 1), 0));
+    TEST_ASSERT_NOT_NULL(root);
+    const cJSON *input = cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root, "session"), "input");
+    int n = cJSON_IsArray(input) ? cJSON_GetArraySize(input) : 0;
+    cJSON_Delete(root);
+    return n;
+}
+
+void test_live_opens_with_session_start(void)
+{
+    make_live();
+    turn();
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.start", 1));
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "session.update", 0));
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "input_audio_buffer.clear", 0));
+    TEST_ASSERT_EQUAL_INT(1, readies);
+    TEST_ASSERT_TRUE(pt_session_live(K));
+    TEST_ASSERT_TRUE(log_has("live session ready: model gpt-live-1, voice marin"));
+    TEST_ASSERT_TRUE(log_has("live session opened"));
+    TEST_ASSERT_FALSE(log_has("realtime session opened"));
+}
+
+void test_live_error_before_started_fails_fast(void)
+{
+    make_live();
+    F.conn[1].live_reject = true;
+    pt_session_for_turn(K, false, now);
+    fp_pump(&F);
+    TEST_ASSERT_EQUAL_INT(1, failures);
+    TEST_ASSERT_EQUAL_INT(0, readies);
+    TEST_ASSERT_NOT_NULL(strstr(last_failure, "realtime error"));
+    TEST_ASSERT_NOT_NULL(strstr(last_failure, "invalid_value"));
+    TEST_ASSERT_EQUAL_size_t(1, fp_count(&F, FP_RT_CLOSE));
+}
+
+void test_live_second_turn_sends_no_realtime_messages(void)
+{
+    make_live();
+    uint32_t first = turn();
+    TEST_ASSERT_EQUAL_UINT32(first, turn());
+    pt_session_for_turn(K, true, now);
+    fp_pump(&F);
+    TEST_ASSERT_EQUAL_INT(3, readies);
+    TEST_ASSERT_EQUAL_INT(1, F.opened);
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "input_audio_buffer.clear", 0));
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "response.cancel", 0));
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.start", 0));
+    pt_session_release(K, first, true, true, false, now);
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "response.cancel", 0));
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "input_audio_buffer.clear", 0));
+}
+
+void test_live_history_goes_into_next_start_once(void)
+{
+    make_live();
+    pt_rt_msg_t history[2] = {{"user", "hello"}, {"assistant", "hi"}};
+    pt_session_set_history(K, history, 2);
+    turn();
+    TEST_ASSERT_EQUAL_INT(2, start_input_items(0));
+    pt_session_end_live(K);
+    turn();
+    TEST_ASSERT_EQUAL_INT(2, F.opened);
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.start", 2));
+    TEST_ASSERT_EQUAL_INT(0, start_input_items(1));
+}
+
+void test_live_close_when_idle_closes_now(void)
+{
+    make_live();
+    turn();
+    pt_session_close_when_idle(K, 300.0f, now);
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.close", 1));
+    TEST_ASSERT_EQUAL_size_t(1, fp_count_conn(&F, FP_RT_CLOSE, 1));
+    TEST_ASSERT_EQUAL_UINT32(0, pt_session_gen(K));
+}
+
+void test_live_closed_event_calls_closed_hook(void)
+{
+    make_live();
+    turn();
+    fp_push(&F, "{\"type\":\"session.closed\",\"reason\":\"expired\"}");
+    TEST_ASSERT_EQUAL_INT(1, closes);
+    TEST_ASSERT_TRUE(log_has("live session closed: expired"));
+}
+
+void test_switch_realtime_to_live(void)
+{
+    make(OLD);
+    turn();
+    TEST_ASSERT_FALSE(pt_session_live(K));
+    snprintf(NEW->openai.model, sizeof(NEW->openai.model), "gpt-live-1");
+    pt_session_settings(K, NEW);
+    turn();
+    TEST_ASSERT_EQUAL_INT(2, F.opened);
+    TEST_ASSERT_EQUAL_size_t(1, fp_count_conn(&F, FP_RT_CLOSE, 1));
+    TEST_ASSERT_EQUAL_size_t(1, fp_sends(&F, "session.start", 2));
+    TEST_ASSERT_EQUAL_size_t(0, fp_sends(&F, "session.update", 2));
+    TEST_ASSERT_TRUE(pt_session_live(K));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -371,5 +501,12 @@ int main(void)
     RUN_TEST(test_connect_fails_on_rejected_update);
     RUN_TEST(test_handshake_waits_for_created_then_updated);
     RUN_TEST(test_connect_times_out_after_ten_seconds);
+    RUN_TEST(test_live_opens_with_session_start);
+    RUN_TEST(test_live_error_before_started_fails_fast);
+    RUN_TEST(test_live_second_turn_sends_no_realtime_messages);
+    RUN_TEST(test_live_history_goes_into_next_start_once);
+    RUN_TEST(test_live_close_when_idle_closes_now);
+    RUN_TEST(test_live_closed_event_calls_closed_hook);
+    RUN_TEST(test_switch_realtime_to_live);
     return UNITY_END();
 }

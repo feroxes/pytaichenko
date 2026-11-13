@@ -14,12 +14,14 @@ Notable changes to Pytaichenko, newest first. The format follows [Keep a Changel
 ### Changed
 
 - The connection to OpenAI is steadier: the speaker uses larger network buffers and sends the microphone sound in fewer, larger pieces.
+- The default instructions allow fuller answers: one sentence for a simple question, usually three to five sentences when an explanation or advice is needed (before, the limit was one or two short sentences). A speaker that already has instructions keeps them: to get the new text, press “Restore defaults” under the instructions on its settings page.
 
 ### Українською
 
 - Колонка тепер може говорити через OpenAI GPT-Live (`gpt-live-1`). Оберіть його в полі «Модель» на сторінці налаштувань колонки: розмова швидша й природніша. GPT-Live оплачується по 0,05 $ за хвилину розмови плюс невелика плата за допоміжну модель, яка виконує дії, як-от зміну гучності чи завершення розмови. Моделі реального часу (`gpt-realtime-2.1-mini`, типова, і `gpt-realtime-2.1`) працюють як і раніше.
 - З GPT-Live колонка між розмовами тримає готове з'єднання з OpenAI (поки ви не заговорите, воно нічого не коштує), тож початок питання не губиться, а перша відповідь приходить швидше. Якщо після ваших слів GPT-Live мовчить, наприклад після «дякую, все», розмова закінчується за 3 секунди.
 - З'єднання з OpenAI стабільніше: колонка використовує більші мережеві буфери й надсилає звук мікрофона рідше, більшими шматками.
+- Типові інструкції дозволяють повніші відповіді: на просте питання — одне речення, а коли потрібні пояснення чи порада — зазвичай три-п'ять речень (раніше межа була одне-два коротких речення). Колонка, у якої інструкції вже є, зберігає їх: щоб отримати новий текст, натисніть «Повернути типові» під інструкціями на її сторінці налаштувань.
 
 ## [2.0.1] - 2026-11-10
 

@@ -91,6 +91,8 @@ static void test_more_languages_get_english_instructions_naming_the_language(voi
         snprintf(want, sizeof(want), "Answer in %s straight to the point", MORE_LANGUAGES[i].name);
         TEST_ASSERT_NOT_NULL_MESSAGE(strstr(p, want), MORE_LANGUAGES[i].code);
         TEST_ASSERT_NOT_NULL(strstr(p, "end_conversation"));
+        TEST_ASSERT_NOT_NULL(strstr(p, "usually in three to five sentences"));
+        TEST_ASSERT_NULL(strstr(p, "one or two short sentences"));
         TEST_ASSERT_TRUE(strlen(p) < sizeof(S->assistant.instructions));
         pt_settings_defaults(S, MORE_LANGUAGES[i].code);
         TEST_ASSERT_EQUAL_STRING(MORE_LANGUAGES[i].code, S->assistant.language);
